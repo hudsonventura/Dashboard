@@ -11,6 +11,7 @@ using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using Microsoft.Extensions.Configuration;
 using SkiaSharp;
+using SolisDashboard.App.Diagnostics;
 using SolisDashboard.App.Models;
 using SolisDashboard.Configuration;
 using SolisDashboard.Display;
@@ -123,6 +124,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _systemTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _systemTimer.Tick += (_, _) => RefreshSystemMetrics();
 
+        LogFilePath = AppLog.LogFilePath;
         _ = InitializeAsync();
     }
 
@@ -135,6 +137,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string _statusMessage = "Iniciando...";
     [ObservableProperty] private string _errorMessage = "";
+    [ObservableProperty] private string _diagnosticLog = "";
+    [ObservableProperty] private bool _hasDiagnosticLog;
+    [ObservableProperty] private string _logFilePath = "";
     [ObservableProperty] private string _inverterSnText = "-";
     [ObservableProperty] private string _modelText = "S6-GR1P6K-S";
     [ObservableProperty] private string _updatedText = "-";
@@ -202,12 +207,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
             if (UseRtspCameras)
             {
-                StartRtspPlayers();
+                if (!StartRtspPlayers())
+                    await StartJpegFallbackAsync();
             }
             else if (_shinobi.IsConfigured)
             {
-                await RefreshCamerasAsync();
-                _cameraTimer.Start();
+                await StartJpegFallbackAsync();
             }
             else if (_options.Shinobi.Enabled)
             {
@@ -216,9 +221,33 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            ReportError("Inicialização", ex);
             StatusMessage = "Falha na inicialização";
         }
+    }
+
+    private void ReportError(string category, Exception ex)
+    {
+        var full = AppLog.Append(category, ex);
+        DiagnosticLog = full.Trim();
+        HasDiagnosticLog = true;
+        ErrorMessage = ex.Message;
+        CameraStatus = $"{category}: {ex.Message}";
+    }
+
+    private void ReportError(string category, string message)
+    {
+        var full = AppLog.Append(category, message);
+        DiagnosticLog = full.Trim();
+        HasDiagnosticLog = true;
+        ErrorMessage = message.Split('\n')[0].Trim();
+        CameraStatus = $"{category}: {ErrorMessage}";
+    }
+
+    [RelayCommand]
+    private void DismissDiagnostic()
+    {
+        HasDiagnosticLog = false;
     }
 
     private void RefreshSystemMetrics()
@@ -275,34 +304,166 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         return $"{bytes / (1024d * 1024 * 1024):0.00} GiB";
     }
 
-    private void StartRtspPlayers()
+    private async Task StartJpegFallbackAsync()
     {
+        UseRtspCameras = false;
+        if (_shinobi is { IsConfigured: true })
+        {
+            await RefreshCamerasAsync();
+            _cameraTimer.Start();
+        }
+    }
+
+    private bool StartRtspPlayers()
+    {
+        Exception? firstError = null;
         try
         {
-            Core.Initialize();
-            _libVlc = new LibVLC(
+            var libDir = InitializeLibVlcNative();
+            EnsureVlcPluginPath(libDir);
+            CreatePlayers(
+                "--verbose=1",
                 "--network-caching=400",
                 "--rtsp-tcp",
                 "--no-audio",
-                "--avcodec-hw=any");
-
-            if (_primaryUsesRtsp)
-            {
-                PrimaryMediaPlayer = new MediaPlayer(_libVlc);
-                PlayRtsp(PrimaryMediaPlayer, _options.Shinobi.Primary.RtspUrl);
-            }
-
-            if (_secondaryUsesRtsp)
-            {
-                SecondaryMediaPlayer = new MediaPlayer(_libVlc);
-                PlayRtsp(SecondaryMediaPlayer, _options.Shinobi.Secondary.RtspUrl);
-            }
-
+                "--aout=dummy");
             CameraStatus = "";
+            return true;
         }
         catch (Exception ex)
         {
-            CameraStatus = $"RTSP: {ex.Message}";
+            firstError = ex;
+            try
+            {
+                PrimaryMediaPlayer?.Dispose();
+                SecondaryMediaPlayer?.Dispose();
+                PrimaryMediaPlayer = null;
+                SecondaryMediaPlayer = null;
+                _libVlc?.Dispose();
+                _libVlc = null;
+
+                // Second attempt without audio/video module hints.
+                CreatePlayers(
+                    "--verbose=2",
+                    "--network-caching=400",
+                    "--rtsp-tcp",
+                    "--no-audio");
+                CameraStatus = "";
+                return true;
+            }
+            catch (Exception retryEx)
+            {
+                var hint = OperatingSystem.IsLinux()
+                    ? """
+                      LibVLC falhou no Linux. No Ubuntu 24.04 (XFCE) execute:
+
+                      sudo apt update
+                      sudo apt install -y vlc libvlc-dev libx11-dev
+
+                      Depois confira:
+                      ls -l /usr/lib/x86_64-linux-gnu/libvlc.so*
+                      ls /usr/lib/x86_64-linux-gnu/vlc/plugins | head
+
+                      Se necessário:
+                      export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+                      export VLC_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/vlc/plugins
+
+                      Depois rode o app de novo (dotnet run --project SolisDashboard.App).
+                      """
+                    : "Falha ao iniciar LibVLC.";
+
+                ReportError(
+                    "RTSP/LibVLC",
+                    $"1ª tentativa:{Environment.NewLine}{firstError}{Environment.NewLine}{Environment.NewLine}" +
+                    $"2ª tentativa:{Environment.NewLine}{retryEx}{Environment.NewLine}{Environment.NewLine}{hint}");
+                return false;
+            }
+        }
+    }
+
+    private void CreatePlayers(params string[] options)
+    {
+        _libVlc = new LibVLC(enableDebugLogs: true, options);
+        _libVlc.Log += (_, e) =>
+        {
+            if (e.Level >= LogLevel.Error)
+                AppLog.Append("LibVLC", $"[{e.Level}] {e.Module}: {e.Message}");
+        };
+
+        if (_primaryUsesRtsp)
+        {
+            PrimaryMediaPlayer = new MediaPlayer(_libVlc);
+            PlayRtsp(PrimaryMediaPlayer, _options.Shinobi.Primary.RtspUrl);
+        }
+
+        if (_secondaryUsesRtsp)
+        {
+            SecondaryMediaPlayer = new MediaPlayer(_libVlc);
+            PlayRtsp(SecondaryMediaPlayer, _options.Shinobi.Secondary.RtspUrl);
+        }
+    }
+
+    private static string? InitializeLibVlcNative()
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            string[] candidates =
+            [
+                "/usr/lib/x86_64-linux-gnu",
+                "/usr/lib/aarch64-linux-gnu",
+                "/usr/lib",
+                "/usr/lib64",
+                "/usr/local/lib"
+            ];
+
+            foreach (var dir in candidates)
+            {
+                if (!Directory.Exists(dir))
+                    continue;
+                if (!HasLibVlc(dir))
+                    continue;
+
+                try
+                {
+                    Core.Initialize(dir);
+                    return dir;
+                }
+                catch
+                {
+                    // try next path
+                }
+            }
+        }
+
+        Core.Initialize();
+        return null;
+    }
+
+    private static bool HasLibVlc(string dir) =>
+        File.Exists(Path.Combine(dir, "libvlc.so")) ||
+        File.Exists(Path.Combine(dir, "libvlc.so.5")) ||
+        Directory.EnumerateFiles(dir, "libvlc.so*").Any();
+
+    private static void EnsureVlcPluginPath(string? libDir)
+    {
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("VLC_PLUGIN_PATH")))
+            return;
+
+        string[] pluginCandidates =
+        [
+            libDir is null ? "" : Path.Combine(libDir, "vlc", "plugins"),
+            "/usr/lib/x86_64-linux-gnu/vlc/plugins",
+            "/usr/lib/aarch64-linux-gnu/vlc/plugins",
+            "/usr/lib/vlc/plugins",
+            "/usr/lib64/vlc/plugins"
+        ];
+
+        foreach (var path in pluginCandidates)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+                continue;
+            Environment.SetEnvironmentVariable("VLC_PLUGIN_PATH", path);
+            return;
         }
     }
 
@@ -424,7 +585,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            ReportError("Atualização Solis/Weather", ex);
             StatusMessage = "Erro na atualização";
             _nextRefreshUtc = DateTime.UtcNow.AddMinutes(5);
         }
@@ -469,7 +630,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            CameraStatus = $"Shinobi: {ex.Message}";
+            ReportError("Shinobi JPEG", ex);
         }
         finally
         {

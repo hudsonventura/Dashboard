@@ -53,8 +53,28 @@
     </Style>
   </Window.Styles>
 
+  <DockPanel Margin="10">
+    <!-- Painel de erro completo (rolável) -->
+    <Border DockPanel.Dock="Top" Background="#33E57373" CornerRadius="8" Padding="10" Margin="0,0,0,10"
+            IsVisible="{Binding HasDiagnosticLog}">
+      <DockPanel>
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+          <TextBlock Text="Erro (texto completo)" FontWeight="SemiBold" Foreground="#FFCDD2"
+                     VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="Fechar" Command="{Binding DismissDiagnosticCommand}"
+                  Padding="10,4" FontSize="11" />
+        </Grid>
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding LogFilePath, StringFormat=Log: {0}}"
+                   FontSize="10" Foreground="#FFCDD2" Margin="0,6,0,0" TextWrapping="Wrap" />
+        <ScrollViewer MaxHeight="160" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+          <TextBlock Text="{Binding DiagnosticLog}" FontSize="11" FontFamily="Consolas, monospace"
+                     Foreground="#FFEBEE" TextWrapping="Wrap" />
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
   <!-- Layout 16:9 — esquerda ~30% | direita ~70% -->
-  <Grid Margin="10" ColumnDefinitions="3*,7*" ColumnSpacing="10">
+  <Grid ColumnDefinitions="3*,7*" ColumnSpacing="10">
 
     <!-- ===== COLUNA ESQUERDA ===== -->
     <Grid Grid.Column="0" RowDefinitions="22*,40*,38*" RowSpacing="10">
@@ -64,9 +84,11 @@
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="section"
                      Text="{Binding SecondaryCameraName, StringFormat=Câmera secundária · {0}}" />
-          <TextBlock DockPanel.Dock="Bottom" Text="{Binding CameraStatus}" FontSize="10"
-                     Foreground="#E57373" Margin="0,4,0,0"
-                     IsVisible="{Binding CameraStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <ScrollViewer DockPanel.Dock="Bottom" MaxHeight="48" Margin="0,4,0,0"
+                        IsVisible="{Binding CameraStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock Text="{Binding CameraStatus}" FontSize="10"
+                       Foreground="#E57373" TextWrapping="Wrap" />
+          </ScrollViewer>
           <Viewbox Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
             <Border Width="640" Height="480" Background="#0D1117" CornerRadius="8" ClipToBounds="True">
               <Panel>
@@ -338,4 +360,5 @@
       </Border>
     </Grid>
   </Grid>
+  </DockPanel>
 </Window>
