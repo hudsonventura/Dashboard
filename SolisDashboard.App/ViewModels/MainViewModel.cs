@@ -44,6 +44,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private DateTime _nextRefreshUtc = DateTime.UtcNow;
     private bool _disposed;
     private bool _cameraBusy;
+    private string? _lastCameraErrorKey;
+    private DateTime _lastCameraErrorReportedUtc = DateTime.MinValue;
     private Bitmap? _primaryCameraFrameField;
     private Bitmap? _secondaryCameraFrameField;
     private readonly bool _primaryUsesRtsp;
@@ -651,31 +653,53 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             var primaryId = _options.Shinobi.Primary.MonitorId;
             var secondaryId = _options.Shinobi.Secondary.MonitorId;
 
-            var primaryTask = string.IsNullOrWhiteSpace(primaryId)
-                ? Task.FromResult<byte[]?>(null)
+            Task<ShinobiJpegResult> primaryTask = string.IsNullOrWhiteSpace(primaryId)
+                ? Task.FromResult(ShinobiJpegResult.Fail("MonitorId primário vazio."))
                 : _shinobi.GetJpegAsync(primaryId);
-            var secondaryTask = string.IsNullOrWhiteSpace(secondaryId)
-                ? Task.FromResult<byte[]?>(null)
+            Task<ShinobiJpegResult> secondaryTask = string.IsNullOrWhiteSpace(secondaryId)
+                ? Task.FromResult(ShinobiJpegResult.Fail("MonitorId secundário vazio."))
                 : _shinobi.GetJpegAsync(secondaryId);
 
             await Task.WhenAll(primaryTask, secondaryTask);
 
-            var primaryBytes = await primaryTask;
-            var secondaryBytes = await secondaryTask;
+            var primary = await primaryTask;
+            var secondary = await secondaryTask;
+            var errors = new List<string>();
 
-            if (primaryBytes is { Length: > 0 })
-                SetPrimaryFrame(primaryBytes);
+            if (primary.Success)
+            {
+                if (!TrySetPrimaryFrame(primary.Bytes!))
+                    errors.Add("Câmera principal: bytes inválidos para Bitmap.");
+            }
+            else if (!string.IsNullOrWhiteSpace(primaryId))
+            {
+                errors.Add($"Câmera principal: {primary.Error}");
+            }
 
-            if (secondaryBytes is { Length: > 0 })
-                SetSecondaryFrame(secondaryBytes);
+            if (secondary.Success)
+            {
+                if (!TrySetSecondaryFrame(secondary.Bytes!))
+                    errors.Add("Câmera secundária: bytes inválidos para Bitmap.");
+            }
+            else if (!string.IsNullOrWhiteSpace(secondaryId))
+            {
+                errors.Add($"Câmera secundária: {secondary.Error}");
+            }
 
-            CameraStatus = primaryBytes is null && secondaryBytes is null
-                ? "Shinobi JPEG: sem frame (habilite Snapshot ou use RtspUrl)."
-                : "";
+            if (errors.Count == 0)
+            {
+                CameraStatus = "";
+                _lastCameraErrorKey = null;
+            }
+            else
+            {
+                CameraStatus = errors[0];
+                ReportCameraIssue(string.Join(Environment.NewLine, errors));
+            }
         }
         catch (Exception ex)
         {
-            ReportError("Shinobi JPEG", ex);
+            ReportCameraIssue(ex.ToString());
         }
         finally
         {
@@ -683,24 +707,60 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private void SetPrimaryFrame(byte[] jpegBytes)
+    private void ReportCameraIssue(string message)
     {
-        using var ms = new MemoryStream(jpegBytes);
-        var next = new Bitmap(ms);
+        // Evita spam no botão de alerta a cada 1.5s com o mesmo erro.
+        var key = message.Length <= 240 ? message : message[..240];
+        if (key == _lastCameraErrorKey &&
+            DateTime.UtcNow - _lastCameraErrorReportedUtc < TimeSpan.FromMinutes(2))
+        {
+            return;
+        }
+
+        _lastCameraErrorKey = key;
+        _lastCameraErrorReportedUtc = DateTime.UtcNow;
+        ReportError("Shinobi JPEG", message);
+    }
+
+    private bool TrySetPrimaryFrame(byte[] imageBytes)
+    {
+        if (!TryCreateBitmap(imageBytes, out var next) || next is null)
+            return false;
+
         var previous = _primaryCameraFrameField;
         _primaryCameraFrameField = next;
         PrimaryCameraFrame = next;
         previous?.Dispose();
+        return true;
     }
 
-    private void SetSecondaryFrame(byte[] jpegBytes)
+    private bool TrySetSecondaryFrame(byte[] imageBytes)
     {
-        using var ms = new MemoryStream(jpegBytes);
-        var next = new Bitmap(ms);
+        if (!TryCreateBitmap(imageBytes, out var next) || next is null)
+            return false;
+
         var previous = _secondaryCameraFrameField;
         _secondaryCameraFrameField = next;
         SecondaryCameraFrame = next;
         previous?.Dispose();
+        return true;
+    }
+
+    private static bool TryCreateBitmap(byte[] imageBytes, out Bitmap? bitmap)
+    {
+        bitmap = null;
+        try
+        {
+            using var ms = new MemoryStream(imageBytes);
+            bitmap = new Bitmap(ms);
+            return true;
+        }
+        catch
+        {
+            bitmap?.Dispose();
+            bitmap = null;
+            return false;
+        }
     }
 
     private void UpdateCountdown()
