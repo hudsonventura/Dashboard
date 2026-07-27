@@ -4,7 +4,7 @@ public sealed class AppOptions
 {
     public SolisOptions Solis { get; set; } = new();
     public WeatherOptions Weather { get; set; } = new();
-    public ShinobiOptions Shinobi { get; set; } = new();
+    public CamerasOptions Cameras { get; set; } = new();
 }
 
 public sealed class SolisOptions
@@ -25,28 +25,19 @@ public sealed class WeatherOptions
     public string Timezone { get; set; } = "America/Sao_Paulo";
 }
 
-/// <summary>
-/// Câmeras Shinobi. URLs conforme docs: https://docs.shinobi.video/api/get-streams
-/// JPEG: {BaseUrl}/{ApiKey}/jpeg/{GroupKey}/{MonitorId}/s.jpg
-/// </summary>
-public sealed class ShinobiOptions
+/// <summary>Câmeras via RTSP (LibVLC).</summary>
+public sealed class CamerasOptions
 {
     public bool Enabled { get; set; } = true;
-    public string BaseUrl { get; set; } = "http://127.0.0.1:8080";
-    public string ApiKey { get; set; } = "";
-    public string GroupKey { get; set; } = "";
-    /// <summary>Intervalo de atualização dos frames (segundos).</summary>
-    public double SnapshotRefreshSeconds { get; set; } = 1.5;
-    public ShinobiCameraOptions Primary { get; set; } = new();
-    public ShinobiCameraOptions Secondary { get; set; } = new();
+    public CameraOptions Primary { get; set; } = new();
+    public CameraOptions Secondary { get; set; } = new();
 }
 
-public sealed class ShinobiCameraOptions
+public sealed class CameraOptions
 {
-    public string MonitorId { get; set; } = "";
     public string Name { get; set; } = "Câmera";
-    /// <summary>URL RTSP completa. Se preenchida, tem prioridade sobre JPEG/Shinobi API.</summary>
+    /// <summary>URL RTSP completa da câmera.</summary>
     public string RtspUrl { get; set; } = "";
-    /// <summary>Altura da visualização em pixels. Ajuste aqui para deixar grande ou pequena.</summary>
+    /// <summary>Altura da visualização em pixels (referência de layout).</summary>
     public double Height { get; set; } = 280;
 }

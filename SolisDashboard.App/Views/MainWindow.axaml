@@ -77,15 +77,10 @@
                                IsVisible="{Binding UseRtspCameras}"
                                HorizontalAlignment="Stretch"
                                VerticalAlignment="Stretch" />
-                <Panel IsVisible="{Binding !UseRtspCameras}">
-                  <TextBlock Text="Sem vídeo"
-                             HorizontalAlignment="Center" VerticalAlignment="Center"
-                             Foreground="{DynamicResource MutedText}" />
-                  <Image Source="{Binding SecondaryCameraFrame}"
-                         Stretch="Uniform"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center" />
-                </Panel>
+                <TextBlock Text="Sem vídeo RTSP"
+                           IsVisible="{Binding !UseRtspCameras}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource MutedText}" />
               </Panel>
             </Border>
           </Viewbox>
@@ -232,15 +227,10 @@
                                IsVisible="{Binding UseRtspCameras}"
                                HorizontalAlignment="Stretch"
                                VerticalAlignment="Stretch" />
-                <Panel IsVisible="{Binding !UseRtspCameras}">
-                  <TextBlock Text="Sem vídeo"
-                             HorizontalAlignment="Center" VerticalAlignment="Center"
-                             Foreground="{DynamicResource MutedText}" />
-                  <Image Source="{Binding PrimaryCameraFrame}"
-                         Stretch="Uniform"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center" />
-                </Panel>
+                <TextBlock Text="Sem vídeo RTSP"
+                           IsVisible="{Binding !UseRtspCameras}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource MutedText}" />
               </Panel>
             </Border>
           </Viewbox>

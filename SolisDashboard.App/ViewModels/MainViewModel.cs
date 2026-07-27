@@ -4,7 +4,6 @@ using System.IO;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -32,22 +31,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly AppOptions _options;
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _countdownTimer;
-    private readonly DispatcherTimer _cameraTimer;
     private readonly DispatcherTimer _systemTimer;
     private readonly ObservableCollection<double> _generationValues = [];
     private readonly SystemMetricsService _systemMetrics = new();
     private SolisApiClient? _solis;
     private OpenMeteoClient? _weather;
-    private ShinobiClient? _shinobi;
     private LibVLC? _libVlc;
     private string? _inverterSn;
     private DateTime _nextRefreshUtc = DateTime.UtcNow;
     private bool _disposed;
-    private bool _cameraBusy;
-    private string? _lastCameraErrorKey;
-    private DateTime _lastCameraErrorReportedUtc = DateTime.MinValue;
-    private Bitmap? _primaryCameraFrameField;
-    private Bitmap? _secondaryCameraFrameField;
     private readonly bool _primaryUsesRtsp;
     private readonly bool _secondaryUsesRtsp;
 
@@ -64,15 +56,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         ForecastDays = [];
         CpuCores = [];
-        CamerasVisible = _options.Shinobi.Enabled;
-        PrimaryCameraName = string.IsNullOrWhiteSpace(_options.Shinobi.Primary.Name) ? "Câmera 1" : _options.Shinobi.Primary.Name;
-        SecondaryCameraName = string.IsNullOrWhiteSpace(_options.Shinobi.Secondary.Name) ? "Câmera 2" : _options.Shinobi.Secondary.Name;
-        PrimaryCameraHeight = Math.Max(80, _options.Shinobi.Primary.Height);
-        SecondaryCameraHeight = Math.Max(80, _options.Shinobi.Secondary.Height);
+        CamerasVisible = _options.Cameras.Enabled;
+        PrimaryCameraName = string.IsNullOrWhiteSpace(_options.Cameras.Primary.Name) ? "Câmera 1" : _options.Cameras.Primary.Name;
+        SecondaryCameraName = string.IsNullOrWhiteSpace(_options.Cameras.Secondary.Name) ? "Câmera 2" : _options.Cameras.Secondary.Name;
+        PrimaryCameraHeight = Math.Max(80, _options.Cameras.Primary.Height);
+        SecondaryCameraHeight = Math.Max(80, _options.Cameras.Secondary.Height);
 
-        _primaryUsesRtsp = !string.IsNullOrWhiteSpace(_options.Shinobi.Primary.RtspUrl);
-        _secondaryUsesRtsp = !string.IsNullOrWhiteSpace(_options.Shinobi.Secondary.RtspUrl);
-        UseRtspCameras = _primaryUsesRtsp || _secondaryUsesRtsp;
+        _primaryUsesRtsp = !string.IsNullOrWhiteSpace(_options.Cameras.Primary.RtspUrl);
+        _secondaryUsesRtsp = !string.IsNullOrWhiteSpace(_options.Cameras.Secondary.RtspUrl);
+        UseRtspCameras = _options.Cameras.Enabled && (_primaryUsesRtsp || _secondaryUsesRtsp);
 
         ChartSeries =
         [
@@ -121,10 +113,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         _countdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _countdownTimer.Tick += (_, _) => UpdateCountdown();
-
-        var cameraSeconds = Math.Clamp(_options.Shinobi.SnapshotRefreshSeconds, 0.5, 30);
-        _cameraTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(cameraSeconds) };
-        _cameraTimer.Tick += async (_, _) => await RefreshCamerasAsync();
 
         _systemTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _systemTimer.Tick += (_, _) => RefreshSystemMetrics();
@@ -183,8 +171,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _secondaryCameraName = "Câmera 2";
     [ObservableProperty] private double _primaryCameraHeight = 360;
     [ObservableProperty] private double _secondaryCameraHeight = 180;
-    [ObservableProperty] private Bitmap? _primaryCameraFrame;
-    [ObservableProperty] private Bitmap? _secondaryCameraFrame;
     [ObservableProperty] private string _cameraStatus = "";
     [ObservableProperty] private MediaPlayer? _primaryMediaPlayer;
     [ObservableProperty] private MediaPlayer? _secondaryMediaPlayer;
@@ -203,7 +189,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             ValidateOptions();
             _solis = new SolisApiClient(_options.Solis);
             _weather = new OpenMeteoClient(_options.Weather);
-            _shinobi = new ShinobiClient(_options.Shinobi);
 
             RefreshSystemMetrics();
             _systemTimer.Start();
@@ -214,16 +199,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
             if (UseRtspCameras)
             {
-                if (!StartRtspPlayers())
-                    await StartJpegFallbackAsync();
+                StartRtspPlayers();
             }
-            else if (_shinobi.IsConfigured)
+            else if (_options.Cameras.Enabled)
             {
-                await StartJpegFallbackAsync();
-            }
-            else if (_options.Shinobi.Enabled)
-            {
-                CameraStatus = "Configure RtspUrl ou BaseUrl/ApiKey/GroupKey/MonitorId no appsettings.";
+                CameraStatus = "Configure Cameras.Primary/Secondary.RtspUrl no appsettings.json.";
+                ReportError("Câmeras", CameraStatus);
             }
         }
         catch (Exception ex)
@@ -351,16 +332,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         return $"{bytes / (1024d * 1024 * 1024):0.00} GiB";
     }
 
-    private async Task StartJpegFallbackAsync()
-    {
-        UseRtspCameras = false;
-        if (_shinobi is { IsConfigured: true })
-        {
-            await RefreshCamerasAsync();
-            _cameraTimer.Start();
-        }
-    }
-
     private bool StartRtspPlayers()
     {
         Exception? firstError = null;
@@ -389,7 +360,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 _libVlc?.Dispose();
                 _libVlc = null;
 
-                // Second attempt without audio/video module hints.
                 CreatePlayers(
                     "--verbose=2",
                     "--network-caching=400",
@@ -400,6 +370,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             }
             catch (Exception retryEx)
             {
+                UseRtspCameras = false;
                 var hint = OperatingSystem.IsLinux()
                     ? """
                       LibVLC falhou no Linux. No Ubuntu 24.04 (XFCE) execute:
@@ -414,8 +385,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                       Se necessário:
                       export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
                       export VLC_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/vlc/plugins
-
-                      Depois rode o app de novo (dotnet run --project SolisDashboard.App).
                       """
                     : "Falha ao iniciar LibVLC.";
 
@@ -440,13 +409,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (_primaryUsesRtsp)
         {
             PrimaryMediaPlayer = new MediaPlayer(_libVlc);
-            PlayRtsp(PrimaryMediaPlayer, _options.Shinobi.Primary.RtspUrl);
+            PlayRtsp(PrimaryMediaPlayer, _options.Cameras.Primary.RtspUrl);
         }
 
         if (_secondaryUsesRtsp)
         {
             SecondaryMediaPlayer = new MediaPlayer(_libVlc);
-            PlayRtsp(SecondaryMediaPlayer, _options.Shinobi.Secondary.RtspUrl);
+            PlayRtsp(SecondaryMediaPlayer, _options.Cameras.Secondary.RtspUrl);
         }
     }
 
@@ -642,127 +611,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private async Task RefreshCamerasAsync()
-    {
-        if (UseRtspCameras || _shinobi is null || !_shinobi.IsConfigured || _cameraBusy)
-            return;
-
-        try
-        {
-            _cameraBusy = true;
-            var primaryId = _options.Shinobi.Primary.MonitorId;
-            var secondaryId = _options.Shinobi.Secondary.MonitorId;
-
-            Task<ShinobiJpegResult> primaryTask = string.IsNullOrWhiteSpace(primaryId)
-                ? Task.FromResult(ShinobiJpegResult.Fail("MonitorId primário vazio."))
-                : _shinobi.GetJpegAsync(primaryId);
-            Task<ShinobiJpegResult> secondaryTask = string.IsNullOrWhiteSpace(secondaryId)
-                ? Task.FromResult(ShinobiJpegResult.Fail("MonitorId secundário vazio."))
-                : _shinobi.GetJpegAsync(secondaryId);
-
-            await Task.WhenAll(primaryTask, secondaryTask);
-
-            var primary = await primaryTask;
-            var secondary = await secondaryTask;
-            var errors = new List<string>();
-
-            if (primary.Success)
-            {
-                if (!TrySetPrimaryFrame(primary.Bytes!))
-                    errors.Add("Câmera principal: bytes inválidos para Bitmap.");
-            }
-            else if (!string.IsNullOrWhiteSpace(primaryId))
-            {
-                errors.Add($"Câmera principal: {primary.Error}");
-            }
-
-            if (secondary.Success)
-            {
-                if (!TrySetSecondaryFrame(secondary.Bytes!))
-                    errors.Add("Câmera secundária: bytes inválidos para Bitmap.");
-            }
-            else if (!string.IsNullOrWhiteSpace(secondaryId))
-            {
-                errors.Add($"Câmera secundária: {secondary.Error}");
-            }
-
-            if (errors.Count == 0)
-            {
-                CameraStatus = "";
-                _lastCameraErrorKey = null;
-            }
-            else
-            {
-                CameraStatus = errors[0];
-                ReportCameraIssue(string.Join(Environment.NewLine, errors));
-            }
-        }
-        catch (Exception ex)
-        {
-            ReportCameraIssue(ex.ToString());
-        }
-        finally
-        {
-            _cameraBusy = false;
-        }
-    }
-
-    private void ReportCameraIssue(string message)
-    {
-        // Evita spam no botão de alerta a cada 1.5s com o mesmo erro.
-        var key = message.Length <= 240 ? message : message[..240];
-        if (key == _lastCameraErrorKey &&
-            DateTime.UtcNow - _lastCameraErrorReportedUtc < TimeSpan.FromMinutes(2))
-        {
-            return;
-        }
-
-        _lastCameraErrorKey = key;
-        _lastCameraErrorReportedUtc = DateTime.UtcNow;
-        ReportError("Shinobi JPEG", message);
-    }
-
-    private bool TrySetPrimaryFrame(byte[] imageBytes)
-    {
-        if (!TryCreateBitmap(imageBytes, out var next) || next is null)
-            return false;
-
-        var previous = _primaryCameraFrameField;
-        _primaryCameraFrameField = next;
-        PrimaryCameraFrame = next;
-        previous?.Dispose();
-        return true;
-    }
-
-    private bool TrySetSecondaryFrame(byte[] imageBytes)
-    {
-        if (!TryCreateBitmap(imageBytes, out var next) || next is null)
-            return false;
-
-        var previous = _secondaryCameraFrameField;
-        _secondaryCameraFrameField = next;
-        SecondaryCameraFrame = next;
-        previous?.Dispose();
-        return true;
-    }
-
-    private static bool TryCreateBitmap(byte[] imageBytes, out Bitmap? bitmap)
-    {
-        bitmap = null;
-        try
-        {
-            using var ms = new MemoryStream(imageBytes);
-            bitmap = new Bitmap(ms);
-            return true;
-        }
-        catch
-        {
-            bitmap?.Dispose();
-            bitmap = null;
-            return false;
-        }
-    }
-
     private void UpdateCountdown()
     {
         var remaining = _nextRefreshUtc - DateTime.UtcNow;
@@ -822,7 +670,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _disposed = true;
         _refreshTimer.Stop();
         _countdownTimer.Stop();
-        _cameraTimer.Stop();
         _systemTimer.Stop();
         _systemMetrics.Dispose();
 
@@ -834,8 +681,5 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         _solis?.Dispose();
         _weather?.Dispose();
-        _shinobi?.Dispose();
-        _primaryCameraFrameField?.Dispose();
-        _secondaryCameraFrameField?.Dispose();
     }
 }
