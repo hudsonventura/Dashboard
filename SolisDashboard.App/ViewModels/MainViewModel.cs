@@ -25,7 +25,6 @@ namespace SolisDashboard.App.ViewModels;
 public partial class MainViewModel : ViewModelBase, IDisposable
 {
     private static readonly SKColor AccentColor = SKColor.Parse("#F5B942");
-    private static readonly SKColor AxisTextColor = SKColor.Parse("#9AA6B5");
     private static readonly SKColor AxisLineColor = SKColor.Parse("#2A3442");
 
     private readonly AppOptions _options;
@@ -92,13 +91,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         [
             new Axis
             {
-                Name = "Horário",
-                Labels = [],
-                LabelsPaint = new SolidColorPaint(AxisTextColor),
-                NamePaint = new SolidColorPaint(AxisTextColor),
+                LabelsPaint = null,
+                NamePaint = null,
                 SeparatorsPaint = new SolidColorPaint(AxisLineColor),
-                LabelsRotation = 15,
-                TextSize = 10
+                ShowSeparatorLines = true
             }
         ];
 
@@ -106,12 +102,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         [
             new Axis
             {
-                Name = "W",
-                Labeler = value => $"{value:0}",
-                LabelsPaint = new SolidColorPaint(AxisTextColor),
-                NamePaint = new SolidColorPaint(AxisTextColor),
+                LabelsPaint = null,
+                NamePaint = null,
                 SeparatorsPaint = new SolidColorPaint(AxisLineColor),
-                TextSize = 10
+                ShowSeparatorLines = true
             }
         ];
 
@@ -123,6 +117,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         _systemTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _systemTimer.Tick += (_, _) => RefreshSystemMetrics();
+
+        UpdateCountdown();
 
         _primaryPlayer.FrameReceived += jpeg => OnFrame(isPrimary: true, jpeg);
         _secondaryPlayer.FrameReceived += jpeg => OnFrame(isPrimary: false, jpeg);
@@ -154,6 +150,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _energyTodayText = "-";
     [ObservableProperty] private string _energyTotalText = "-";
     [ObservableProperty] private string _countdownText = "";
+    [ObservableProperty] private string _clockDateText = "";
+    [ObservableProperty] private string _clockTimeText = "";
 
     [ObservableProperty] private string _pv1Voltage = "-";
     [ObservableProperty] private string _pv1Current = "-";
@@ -168,6 +166,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _inverterTemp = "-";
 
     [ObservableProperty] private string _weatherTemp = "-";
+    [ObservableProperty] private string _weatherTodayRange = "-";
     [ObservableProperty] private string _weatherFeelsLike = "-";
     [ObservableProperty] private string _weatherCondition = "-";
     [ObservableProperty] private string _weatherHumidity = "-";
@@ -176,6 +175,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _weatherIconKey = "unknown";
     [ObservableProperty] private string _weatherTime = "-";
     [ObservableProperty] private string _chartPeakText = "";
+    [ObservableProperty] private string _power6kFirstText = "-";
+    [ObservableProperty] private string _power6kLastText = "-";
 
     [ObservableProperty] private bool _camerasVisible;
     [ObservableProperty] private bool _useRtspCameras;
@@ -533,11 +534,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             foreach (var point in points)
                 _generationValues.Add(point.PowerW);
 
-            XAxes[0].Labels = points.Select(p => p.Time).ToArray();
+            XAxes[0].Labels = null;
 
             ChartPeakText = points.Count == 0
                 ? "Sem dados de geração para hoje"
                 : $"Pico {points.Max(p => p.PowerW):0.#} W · {points.Count} pontos";
+
+            const double thresholdW = 6000;
+            var atOrAbove6k = points.Where(p => p.PowerW >= thresholdW).ToList();
+            Power6kFirstText = atOrAbove6k.Count == 0 ? "—" : atOrAbove6k[0].Time;
+            Power6kLastText = atOrAbove6k.Count == 0 ? "—" : atOrAbove6k[^1].Time;
 
             if (forecast.Current is { } current)
             {
@@ -552,6 +558,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             }
 
             ForecastDays.Clear();
+            WeatherTodayRange = "-";
             if (forecast.Daily is { } daily)
             {
                 var culture = new CultureInfo("pt-BR");
@@ -563,16 +570,21 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     var max = i < daily.Temperature2mMax.Count ? daily.Temperature2mMax[i] : 0;
                     var rain = i < daily.PrecipitationSum.Count ? daily.PrecipitationSum[i] : 0;
                     var wind = i < daily.WindSpeed10mMax.Count ? daily.WindSpeed10mMax[i] : 0;
-                    var dateLabel = DateOnly.TryParse(daily.Time[i], out var d)
-                        ? d.ToString("ddd dd/MM", culture)
+                    var dayLabel = DateOnly.TryParse(daily.Time[i], out var d)
+                        ? d.ToString("ddd", culture).TrimEnd('.')
                         : daily.Time[i];
+                    dayLabel = culture.TextInfo.ToTitleCase(dayLabel.ToLowerInvariant());
+
+                    var range = $"{max:0.#}°/{min:0.#}°";
+                    if (i == 0)
+                        WeatherTodayRange = $"{max:0.#}° / {min:0.#}°";
 
                     ForecastDays.Add(new ForecastDayItem
                     {
-                        DateLabel = culture.TextInfo.ToTitleCase(dateLabel),
+                        DateLabel = dayLabel,
                         Condition = WeatherCodes.Describe(code),
                         IconKey = WeatherCodes.IconKey(code),
-                        TempRange = $"{min:0.#}° / {max:0.#}°",
+                        TempRange = range,
                         Rain = $"{rain:0.#} mm",
                         Wind = $"{wind:0.#} km/h"
                     });
@@ -601,6 +613,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (remaining < TimeSpan.Zero)
             remaining = TimeSpan.Zero;
         CountdownText = $"Próxima atualização em {remaining.Minutes:00}:{remaining.Seconds:00}";
+
+        var now = DateTime.Now;
+        ClockDateText = now.ToString("yyyy-MM-dd");
+        ClockTimeText = now.ToString("HH:mm:ss");
     }
 
     private void ValidateOptions()

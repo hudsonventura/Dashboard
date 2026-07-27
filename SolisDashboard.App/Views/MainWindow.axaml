@@ -57,7 +57,7 @@
   <Grid Margin="10" ColumnDefinitions="3*,7*" ColumnSpacing="10">
 
     <!-- ===== COLUNA ESQUERDA ===== -->
-    <Grid Grid.Column="0" RowDefinitions="22*,40*,38*" RowSpacing="10">
+    <Grid Grid.Column="0" RowDefinitions="18*,30*,52*" RowSpacing="10">
 
       <!-- Câmera secundária 4:3 -->
       <Border Grid.Row="0" Classes="card" Padding="8">
@@ -86,71 +86,73 @@
         </DockPanel>
       </Border>
 
-      <!-- Weather -->
+      <!-- Weather compacto -->
       <Border Grid.Row="1" Classes="card" Padding="10">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="section" Text="Weather · Open-Meteo" />
-          <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Spacing="10">
-              <StackPanel Orientation="Horizontal" Spacing="10">
-                <Image Width="48" Height="48"
-                       Source="{Binding WeatherIconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
-                <StackPanel VerticalAlignment="Center" Spacing="1">
+
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Image Width="44" Height="44"
+                     Source="{Binding WeatherIconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
+              <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <StackPanel Spacing="1">
                   <TextBlock Text="{Binding WeatherTemp}" FontSize="26" FontWeight="Bold"
                              Foreground="{DynamicResource PrimaryText}" />
-                  <TextBlock Text="{Binding WeatherCondition}" FontSize="12"
+                  <TextBlock Text="{Binding WeatherCondition}" FontSize="11"
                              Foreground="{DynamicResource Accent}" TextWrapping="Wrap" />
-                  <TextBlock Text="{Binding WeatherTime}" FontSize="10"
-                             Foreground="{DynamicResource MutedText}" />
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Classes="metric-label" Text="Máx / Mín hoje" />
+                  <TextBlock Text="{Binding WeatherTodayRange}" FontSize="14" FontWeight="SemiBold"
+                             Foreground="{DynamicResource PrimaryText}" />
                 </StackPanel>
               </StackPanel>
-
-              <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="6" ColumnSpacing="8">
-                <StackPanel Grid.Row="0" Grid.Column="0">
-                  <TextBlock Classes="metric-label" Text="Sensação" />
-                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding WeatherFeelsLike}" />
-                </StackPanel>
-                <StackPanel Grid.Row="0" Grid.Column="1">
-                  <TextBlock Classes="metric-label" Text="Umidade" />
-                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding WeatherHumidity}" />
-                </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="0">
-                  <TextBlock Classes="metric-label" Text="Vento" />
-                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding WeatherWind}" />
-                </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="1">
-                  <TextBlock Classes="metric-label" Text="Precipitação" />
-                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding WeatherPrecip}" />
-                </StackPanel>
-              </Grid>
-
-              <TextBlock Classes="section" Text="Próximos 5 dias" Margin="0,2,0,0" />
-              <ItemsControl ItemsSource="{Binding ForecastDays}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="models:ForecastDayItem">
-                    <Border Margin="0,0,0,6" Padding="6" CornerRadius="6" Background="#14FFFFFF">
-                      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center"
-                               Source="{Binding IconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                          <TextBlock Text="{Binding DateLabel}" FontSize="11" FontWeight="SemiBold"
-                                     Foreground="{DynamicResource PrimaryText}" />
-                          <TextBlock Text="{Binding Condition}" FontSize="10"
-                                     Foreground="{DynamicResource MutedText}" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
-                          <TextBlock Text="{Binding TempRange}" FontSize="11" FontWeight="SemiBold"
-                                     Foreground="{DynamicResource Accent}" HorizontalAlignment="Right" />
-                          <TextBlock Text="{Binding Rain}" FontSize="9"
-                                     Foreground="{DynamicResource MutedText}" HorizontalAlignment="Right" />
-                        </StackPanel>
-                      </Grid>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
             </StackPanel>
-          </ScrollViewer>
+
+            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="6">
+              <StackPanel Grid.Column="0">
+                <TextBlock Classes="metric-label" Text="Sensação" />
+                <TextBlock Classes="metric-value" FontSize="12" Text="{Binding WeatherFeelsLike}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1">
+                <TextBlock Classes="metric-label" Text="Umidade" />
+                <TextBlock Classes="metric-value" FontSize="12" Text="{Binding WeatherHumidity}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="metric-label" Text="Vento" />
+                <TextBlock Classes="metric-value" FontSize="12" Text="{Binding WeatherWind}" />
+              </StackPanel>
+              <StackPanel Grid.Column="3">
+                <TextBlock Classes="metric-label" Text="Chuva" />
+                <TextBlock Classes="metric-value" FontSize="12" Text="{Binding WeatherPrecip}" />
+              </StackPanel>
+            </Grid>
+
+            <ItemsControl ItemsSource="{Binding ForecastDays}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <UniformGrid Columns="5" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="models:ForecastDayItem">
+                  <Border Margin="2,0" Padding="4,6" CornerRadius="8" Background="#14FFFFFF">
+                    <StackPanel Spacing="4" HorizontalAlignment="Center">
+                      <TextBlock Text="{Binding DateLabel}" FontSize="11" FontWeight="SemiBold"
+                                 Foreground="{DynamicResource PrimaryText}"
+                                 HorizontalAlignment="Center" />
+                      <Image Width="28" Height="28" HorizontalAlignment="Center"
+                             Source="{Binding IconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
+                      <TextBlock Text="{Binding TempRange}" FontSize="11" FontWeight="SemiBold"
+                                 Foreground="{DynamicResource PrimaryText}"
+                                 HorizontalAlignment="Center" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
         </DockPanel>
       </Border>
 
@@ -271,7 +273,8 @@
               </StackPanel>
             </Grid>
 
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="6" RowSpacing="6">
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto"
+                  ColumnSpacing="6" RowSpacing="6" Margin="0,0,0,8">
               <Border Grid.Row="0" Grid.Column="0" Classes="metric">
                 <StackPanel Spacing="1">
                   <TextBlock Classes="metric-label" Text="PV1" />
@@ -314,6 +317,34 @@
                 </StackPanel>
               </Border>
             </Grid>
+
+            <!-- Área inferior: relógio + janela 6 kW -->
+            <Border Classes="metric" Padding="10" VerticalAlignment="Stretch">
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="12" VerticalAlignment="Center">
+                <StackPanel VerticalAlignment="Center" Spacing="2">
+                  <TextBlock Text="{Binding ClockDateText}" FontSize="18" FontWeight="SemiBold"
+                             Foreground="{DynamicResource PrimaryText}"
+                             FontFamily="Consolas, monospace" />
+                  <TextBlock Text="{Binding ClockTimeText}" FontSize="28" FontWeight="Bold"
+                             Foreground="{DynamicResource Accent}"
+                             FontFamily="Consolas, monospace" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
+                  <StackPanel Spacing="1">
+                    <TextBlock Classes="metric-label" Text="1º ≥ 6 kW" />
+                    <TextBlock FontSize="16" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Accent}"
+                               Text="{Binding Power6kFirstText}" />
+                  </StackPanel>
+                  <StackPanel Spacing="1">
+                    <TextBlock Classes="metric-label" Text="Último ≥ 6 kW" />
+                    <TextBlock FontSize="16" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Accent}"
+                               Text="{Binding Power6kLastText}" />
+                  </StackPanel>
+                </StackPanel>
+              </Grid>
+            </Border>
           </DockPanel>
 
           <!-- Gráfico compacto -->
