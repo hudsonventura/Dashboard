@@ -1,0 +1,25 @@
+namespace SolisDashboard.Configuration;
+
+public sealed class AppOptions
+{
+    public SolisOptions Solis { get; set; } = new();
+    public WeatherOptions Weather { get; set; } = new();
+}
+
+public sealed class SolisOptions
+{
+    public string ApiUrl { get; set; } = "https://www.soliscloud.com:13333";
+    public string KeyId { get; set; } = "";
+    public string KeySecret { get; set; } = "";
+    public string InverterSn { get; set; } = "";
+    public string InverterModel { get; set; } = "S6-GR1P6K-S";
+    public int TimeZone { get; set; } = -3;
+    public string Currency { get; set; } = "BRL";
+}
+
+public sealed class WeatherOptions
+{
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string Timezone { get; set; } = "America/Sao_Paulo";
+}

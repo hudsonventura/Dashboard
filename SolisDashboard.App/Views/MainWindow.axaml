@@ -1,0 +1,200 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SolisDashboard.App.ViewModels"
+        xmlns:models="using:SolisDashboard.App.Models"
+        xmlns:conv="using:SolisDashboard.App.Converters"
+        xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="860"
+        x:Class="SolisDashboard.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Solis Dashboard"
+        Width="1320" Height="900"
+        MinWidth="1100" MinHeight="760"
+        Background="{DynamicResource AppBg}">
+
+  <Window.Styles>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource CardBg}" />
+      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="Padding" Value="16" />
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+    <Style Selector="TextBlock.metric-label">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
+    </Style>
+    <Style Selector="TextBlock.metric-value">
+      <Setter Property="FontSize" Value="22" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="16">
+
+    <Border Grid.Row="0" Classes="card" Padding="20,16">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Solis Dashboard" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource Accent}" />
+          <TextBlock FontSize="14" Foreground="{DynamicResource PrimaryText}">
+            <Run Text="Modelo " /><Run Text="{Binding ModelText}" FontWeight="SemiBold" />
+            <Run Text="  ·  SN " /><Run Text="{Binding InverterSnText}" />
+            <Run Text="  ·  " /><Run Text="{Binding StateText}" FontWeight="SemiBold" />
+          </TextBlock>
+          <TextBlock FontSize="12" Foreground="{DynamicResource MutedText}" Text="{Binding StatusMessage}" />
+          <TextBlock FontSize="12" Foreground="#E57373" Text="{Binding ErrorMessage}"
+                     IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
+            <TextBlock Text="{Binding CountdownText}" FontSize="12" Foreground="{DynamicResource MutedText}" HorizontalAlignment="Right" />
+            <TextBlock Text="{Binding UpdatedText, StringFormat=Último sync: {0}}" FontSize="12" Foreground="{DynamicResource MutedText}" HorizontalAlignment="Right" />
+          </StackPanel>
+          <Button Content="Atualizar" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}"
+                  Padding="16,10" Background="{DynamicResource Accent}" Foreground="#1A1F26"
+                  FontWeight="SemiBold" CornerRadius="10" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+      <Border Grid.Column="0" Classes="card">
+        <StackPanel>
+          <TextBlock Classes="section" Text="DC · PV1" />
+          <TextBlock Classes="metric-label" Text="Tensão" />
+          <TextBlock Classes="metric-value" Text="{Binding Pv1Voltage}" />
+          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Corrente" />
+          <TextBlock Classes="metric-value" Text="{Binding Pv1Current}" />
+          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Potência" />
+          <TextBlock Classes="metric-value" Foreground="{DynamicResource Accent}" Text="{Binding Pv1Power}" />
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="1" Classes="card">
+        <StackPanel>
+          <TextBlock Classes="section" Text="DC · PV2" />
+          <TextBlock Classes="metric-label" Text="Tensão" />
+          <TextBlock Classes="metric-value" Text="{Binding Pv2Voltage}" />
+          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Corrente" />
+          <TextBlock Classes="metric-value" Text="{Binding Pv2Current}" />
+          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Potência" />
+          <TextBlock Classes="metric-value" Foreground="{DynamicResource Accent}" Text="{Binding Pv2Power}" />
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="2" Classes="card">
+        <StackPanel>
+          <TextBlock Classes="section" Text="AC · Saída" />
+          <TextBlock Classes="metric-label" Text="Potência" />
+          <TextBlock Classes="metric-value" Foreground="{DynamicResource Accent}" Text="{Binding AcPower}" />
+          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Corrente" />
+          <TextBlock Classes="metric-value" Text="{Binding AcCurrent}" />
+          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Geração hoje" />
+          <TextBlock Classes="metric-value" Text="{Binding EnergyTodayText}" />
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="3" Classes="card">
+        <StackPanel>
+          <TextBlock Classes="section" Text="Geral" />
+          <TextBlock Classes="metric-label" Text="IGBT Temperature" />
+          <TextBlock Classes="metric-value" Text="{Binding IgbtTemp}" />
+          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Temp. inversor" />
+          <TextBlock Classes="metric-value" Text="{Binding InverterTemp}" />
+          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Geração total" />
+          <TextBlock Classes="metric-value" Text="{Binding EnergyTotalText}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="2" ColumnDefinitions="2.2*,*" ColumnSpacing="12">
+      <Border Grid.Column="0" Classes="card">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Classes="section" Text="Geração de hoje" Margin="0" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding ChartPeakText}" Margin="12,0,0,0" VerticalAlignment="Center"
+                       FontSize="12" Foreground="{DynamicResource MutedText}" />
+          </StackPanel>
+          <lvc:CartesianChart Series="{Binding ChartSeries}"
+                              XAxes="{Binding XAxes}"
+                              YAxes="{Binding YAxes}"
+                              LegendPosition="Hidden"
+                              ZoomMode="X"
+                              MinHeight="300" />
+        </DockPanel>
+      </Border>
+
+      <Border Grid.Column="1" Classes="card">
+        <StackPanel>
+          <TextBlock Classes="section" Text="Clima atual · Open-Meteo" />
+          <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,4,0,16">
+            <Image Width="72" Height="72"
+                   Source="{Binding WeatherIconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+              <TextBlock Text="{Binding WeatherTemp}" FontSize="34" FontWeight="Bold" Foreground="{DynamicResource PrimaryText}" />
+              <TextBlock Text="{Binding WeatherCondition}" FontSize="15" Foreground="{DynamicResource Accent}" />
+              <TextBlock Text="{Binding WeatherTime}" FontSize="12" Foreground="{DynamicResource MutedText}" />
+            </StackPanel>
+          </StackPanel>
+          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="10">
+            <StackPanel Grid.Row="0" Grid.Column="0">
+              <TextBlock Classes="metric-label" Text="Sensação" />
+              <TextBlock Classes="metric-value" FontSize="18" Text="{Binding WeatherFeelsLike}" />
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="1">
+              <TextBlock Classes="metric-label" Text="Umidade" />
+              <TextBlock Classes="metric-value" FontSize="18" Text="{Binding WeatherHumidity}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="0">
+              <TextBlock Classes="metric-label" Text="Vento" />
+              <TextBlock Classes="metric-value" FontSize="18" Text="{Binding WeatherWind}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1">
+              <TextBlock Classes="metric-label" Text="Precipitação" />
+              <TextBlock Classes="metric-value" FontSize="18" Text="{Binding WeatherPrecip}" />
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="3" Classes="card">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="section" Text="Previsão — próximos 5 dias" />
+        <ItemsControl ItemsSource="{Binding ForecastDays}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="5" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="models:ForecastDayItem">
+              <Border Margin="6" Padding="12" CornerRadius="12" Background="#14FFFFFF">
+                <StackPanel Spacing="6" HorizontalAlignment="Center">
+                  <TextBlock Text="{Binding DateLabel}" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource PrimaryText}" />
+                  <Image Width="44" Height="44" HorizontalAlignment="Center"
+                         Source="{Binding IconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
+                  <TextBlock Text="{Binding Condition}" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                             HorizontalAlignment="Center" Foreground="{DynamicResource MutedText}" />
+                  <TextBlock Text="{Binding TempRange}" FontSize="14" FontWeight="SemiBold"
+                             HorizontalAlignment="Center" Foreground="{DynamicResource Accent}" />
+                  <TextBlock Text="{Binding Rain, StringFormat=Chuva {0}}" FontSize="11"
+                             HorizontalAlignment="Center" Foreground="{DynamicResource MutedText}" />
+                  <TextBlock Text="{Binding Wind, StringFormat=Vento {0}}" FontSize="11"
+                             HorizontalAlignment="Center" Foreground="{DynamicResource MutedText}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>

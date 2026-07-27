@@ -1,0 +1,29 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SolisDashboard.App.App"
+             xmlns:local="using:SolisDashboard.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.DataTemplates>
+    <local:ViewLocator />
+  </Application.DataTemplates>
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://SolisDashboard.App/Assets/WeatherIcons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+
+      <SolidColorBrush x:Key="AppBg">#12161C</SolidColorBrush>
+      <SolidColorBrush x:Key="CardBg">#1B222C</SolidColorBrush>
+      <SolidColorBrush x:Key="CardBorder">#2A3442</SolidColorBrush>
+      <SolidColorBrush x:Key="PrimaryText">#EEF2F6</SolidColorBrush>
+      <SolidColorBrush x:Key="MutedText">#9AA6B5</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent">#F5B942</SolidColorBrush>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+</Application>

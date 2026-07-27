@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+**/appsettings.json
+**/avalonia-license.txt
+.vs/
+*.user
+*.suo
