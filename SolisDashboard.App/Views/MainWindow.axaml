@@ -4,7 +4,6 @@
         xmlns:models="using:SolisDashboard.App.Models"
         xmlns:conv="using:SolisDashboard.App.Converters"
         xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
-        xmlns:vlc="using:LibVLCSharp.Avalonia"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
@@ -73,12 +72,12 @@
           <Viewbox Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
             <Border Width="640" Height="480" Background="#0D1117" CornerRadius="8" ClipToBounds="True">
               <Panel>
-                <vlc:VideoView MediaPlayer="{Binding SecondaryMediaPlayer}"
-                               IsVisible="{Binding UseRtspCameras}"
-                               HorizontalAlignment="Stretch"
-                               VerticalAlignment="Stretch" />
-                <TextBlock Text="Sem vídeo RTSP"
-                           IsVisible="{Binding !UseRtspCameras}"
+                <Image Source="{Binding SecondaryCameraFrame}"
+                       Stretch="Uniform"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+                <TextBlock Text="Sem vídeo"
+                           IsVisible="{Binding SecondaryCameraFrame, Converter={x:Static ObjectConverters.IsNull}}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{DynamicResource MutedText}" />
               </Panel>
@@ -223,12 +222,12 @@
           <Viewbox Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
             <Border Width="640" Height="480" Background="#0D1117" CornerRadius="8" ClipToBounds="True">
               <Panel>
-                <vlc:VideoView MediaPlayer="{Binding PrimaryMediaPlayer}"
-                               IsVisible="{Binding UseRtspCameras}"
-                               HorizontalAlignment="Stretch"
-                               VerticalAlignment="Stretch" />
-                <TextBlock Text="Sem vídeo RTSP"
-                           IsVisible="{Binding !UseRtspCameras}"
+                <Image Source="{Binding PrimaryCameraFrame}"
+                       Stretch="Uniform"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+                <TextBlock Text="Sem vídeo"
+                           IsVisible="{Binding PrimaryCameraFrame, Converter={x:Static ObjectConverters.IsNull}}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{DynamicResource MutedText}" />
               </Panel>

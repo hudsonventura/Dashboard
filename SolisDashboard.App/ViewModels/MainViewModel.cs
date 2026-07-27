@@ -4,10 +4,10 @@ using System.IO;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using LibVLCSharp.Shared;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
@@ -15,7 +15,6 @@ using Microsoft.Extensions.Configuration;
 using SkiaSharp;
 using SolisDashboard.App.Diagnostics;
 using SolisDashboard.App.Models;
-using SolisDashboard.App.Native;
 using SolisDashboard.Configuration;
 using SolisDashboard.Display;
 using SolisDashboard.Models;
@@ -35,14 +34,21 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly DispatcherTimer _systemTimer;
     private readonly ObservableCollection<double> _generationValues = [];
     private readonly SystemMetricsService _systemMetrics = new();
+    private readonly FfmpegRtspPlayer _primaryPlayer = new("Câmera principal");
+    private readonly FfmpegRtspPlayer _secondaryPlayer = new("Câmera secundária");
     private SolisApiClient? _solis;
     private OpenMeteoClient? _weather;
-    private LibVLC? _libVlc;
     private string? _inverterSn;
     private DateTime _nextRefreshUtc = DateTime.UtcNow;
     private bool _disposed;
-    private readonly bool _primaryUsesRtsp;
-    private readonly bool _secondaryUsesRtsp;
+    private Bitmap? _primaryCameraFrameField;
+    private Bitmap? _secondaryCameraFrameField;
+    private byte[]? _pendingPrimaryJpeg;
+    private byte[]? _pendingSecondaryJpeg;
+    private int _primaryUiScheduled;
+    private int _secondaryUiScheduled;
+    private string? _lastCameraErrorKey;
+    private DateTime _lastCameraErrorReportedUtc = DateTime.MinValue;
 
     public MainViewModel()
     {
@@ -63,9 +69,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         PrimaryCameraHeight = Math.Max(80, _options.Cameras.Primary.Height);
         SecondaryCameraHeight = Math.Max(80, _options.Cameras.Secondary.Height);
 
-        _primaryUsesRtsp = !string.IsNullOrWhiteSpace(_options.Cameras.Primary.RtspUrl);
-        _secondaryUsesRtsp = !string.IsNullOrWhiteSpace(_options.Cameras.Secondary.RtspUrl);
-        UseRtspCameras = _options.Cameras.Enabled && (_primaryUsesRtsp || _secondaryUsesRtsp);
+        var hasPrimary = !string.IsNullOrWhiteSpace(_options.Cameras.Primary.RtspUrl);
+        var hasSecondary = !string.IsNullOrWhiteSpace(_options.Cameras.Secondary.RtspUrl);
+        UseRtspCameras = _options.Cameras.Enabled && (hasPrimary || hasSecondary);
 
         ChartSeries =
         [
@@ -117,6 +123,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         _systemTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _systemTimer.Tick += (_, _) => RefreshSystemMetrics();
+
+        _primaryPlayer.FrameReceived += jpeg => OnFrame(isPrimary: true, jpeg);
+        _secondaryPlayer.FrameReceived += jpeg => OnFrame(isPrimary: false, jpeg);
+        _primaryPlayer.ErrorOccurred += OnCameraPlayerError;
+        _secondaryPlayer.ErrorOccurred += OnCameraPlayerError;
 
         LogFilePath = AppLog.LogFilePath;
         _ = InitializeAsync();
@@ -172,9 +183,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _secondaryCameraName = "Câmera 2";
     [ObservableProperty] private double _primaryCameraHeight = 360;
     [ObservableProperty] private double _secondaryCameraHeight = 180;
+    [ObservableProperty] private Bitmap? _primaryCameraFrame;
+    [ObservableProperty] private Bitmap? _secondaryCameraFrame;
     [ObservableProperty] private string _cameraStatus = "";
-    [ObservableProperty] private MediaPlayer? _primaryMediaPlayer;
-    [ObservableProperty] private MediaPlayer? _secondaryMediaPlayer;
 
     [ObservableProperty] private string _systemPlatform = "-";
     [ObservableProperty] private string _memoryText = "-";
@@ -199,9 +210,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             _countdownTimer.Start();
 
             if (UseRtspCameras)
-            {
-                StartRtspPlayers();
-            }
+                StartCameras();
             else if (_options.Cameras.Enabled)
             {
                 CameraStatus = "Configure Cameras.Primary/Secondary.RtspUrl no appsettings.json.";
@@ -213,6 +222,142 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             ReportError("Inicialização", ex);
             StatusMessage = "Falha na inicialização";
         }
+    }
+
+    private void StartCameras()
+    {
+        try
+        {
+            var ffmpeg = _options.Cameras.FfmpegPath;
+            var fps = _options.Cameras.FrameRate;
+            var maxWidth = _options.Cameras.MaxWidth;
+
+            if (!string.IsNullOrWhiteSpace(_options.Cameras.Primary.RtspUrl))
+                _primaryPlayer.Start(_options.Cameras.Primary.RtspUrl, ffmpeg, fps, maxWidth);
+
+            if (!string.IsNullOrWhiteSpace(_options.Cameras.Secondary.RtspUrl))
+                _secondaryPlayer.Start(_options.Cameras.Secondary.RtspUrl, ffmpeg, fps, maxWidth);
+
+            CameraStatus = "";
+        }
+        catch (Exception ex)
+        {
+            UseRtspCameras = false;
+            ReportError(
+                "RTSP/FFmpeg",
+                $"{ex}{Environment.NewLine}{Environment.NewLine}" +
+                "Instale o FFmpeg e garanta que está no PATH:" + Environment.NewLine +
+                "  sudo apt install -y ffmpeg" + Environment.NewLine +
+                "  ffmpeg -version" + Environment.NewLine +
+                "Ou defina Cameras.FfmpegPath no appsettings.json.");
+        }
+    }
+
+    private void OnFrame(bool isPrimary, byte[] jpeg)
+    {
+        if (isPrimary)
+        {
+            Interlocked.Exchange(ref _pendingPrimaryJpeg, jpeg);
+            SchedulePrimaryUi();
+        }
+        else
+        {
+            Interlocked.Exchange(ref _pendingSecondaryJpeg, jpeg);
+            ScheduleSecondaryUi();
+        }
+    }
+
+    private void SchedulePrimaryUi()
+    {
+        if (Interlocked.CompareExchange(ref _primaryUiScheduled, 1, 0) != 0)
+            return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                var data = Interlocked.Exchange(ref _pendingPrimaryJpeg, null);
+                if (data is not null)
+                    ApplyFrame(isPrimary: true, data);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _primaryUiScheduled, 0);
+                if (_pendingPrimaryJpeg is not null)
+                    SchedulePrimaryUi();
+            }
+        }, DispatcherPriority.Background);
+    }
+
+    private void ScheduleSecondaryUi()
+    {
+        if (Interlocked.CompareExchange(ref _secondaryUiScheduled, 1, 0) != 0)
+            return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                var data = Interlocked.Exchange(ref _pendingSecondaryJpeg, null);
+                if (data is not null)
+                    ApplyFrame(isPrimary: false, data);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _secondaryUiScheduled, 0);
+                if (_pendingSecondaryJpeg is not null)
+                    ScheduleSecondaryUi();
+            }
+        }, DispatcherPriority.Background);
+    }
+
+    private void ApplyFrame(bool isPrimary, byte[] jpeg)
+    {
+        if (_disposed || jpeg.Length == 0)
+            return;
+
+        try
+        {
+            using var ms = new MemoryStream(jpeg);
+            var next = new Bitmap(ms);
+            if (isPrimary)
+            {
+                var prev = _primaryCameraFrameField;
+                _primaryCameraFrameField = next;
+                PrimaryCameraFrame = next;
+                prev?.Dispose();
+            }
+            else
+            {
+                var prev = _secondaryCameraFrameField;
+                _secondaryCameraFrameField = next;
+                SecondaryCameraFrame = next;
+                prev?.Dispose();
+            }
+
+            if (!string.IsNullOrEmpty(CameraStatus))
+                CameraStatus = "";
+        }
+        catch (Exception ex)
+        {
+            ReportCameraIssue($"Frame inválido: {ex.Message}");
+        }
+    }
+
+    private void OnCameraPlayerError(string message) =>
+        Dispatcher.UIThread.Post(() => ReportCameraIssue(message));
+
+    private void ReportCameraIssue(string message)
+    {
+        CameraStatus = message;
+        var key = message.Length <= 240 ? message : message[..240];
+        if (key == _lastCameraErrorKey &&
+            DateTime.UtcNow - _lastCameraErrorReportedUtc < TimeSpan.FromMinutes(2))
+            return;
+
+        _lastCameraErrorKey = key;
+        _lastCameraErrorReportedUtc = DateTime.UtcNow;
+        ReportError("RTSP/FFmpeg", message);
     }
 
     private void ReportError(string category, Exception ex)
@@ -247,10 +392,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private void CloseDiagnostic()
-    {
-        IsDiagnosticPanelOpen = false;
-    }
+    private void CloseDiagnostic() => IsDiagnosticPanelOpen = false;
 
     [RelayCommand]
     private async Task CopyDiagnosticAsync()
@@ -331,81 +473,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (bytes < 1024d * 1024 * 1024)
             return $"{bytes / (1024 * 1024):0.0} MiB";
         return $"{bytes / (1024d * 1024 * 1024):0.00} GiB";
-    }
-
-    private bool StartRtspPlayers()
-    {
-        try
-        {
-            LibVlcHost.Initialize();
-            CreatePlayers(LibVlcHost.BuildOptions());
-            CameraStatus = "";
-            return true;
-        }
-        catch (Exception ex)
-        {
-            UseRtspCameras = false;
-
-            var hint = OperatingSystem.IsLinux()
-                ? """
-                  LibVLC falhou no Linux. Rode no servidor:
-
-                  sudo apt update
-                  sudo apt install -y vlc libvlc5 libvlc-dev libvlccore9 libx11-dev
-                  sudo ldconfig
-
-                  Confira:
-                  ls -l /usr/lib/x86_64-linux-gnu/libvlc.so*
-                  ls /usr/lib/x86_64-linux-gnu/vlc/plugins | head
-                  dpkg -l | grep -E 'libvlc|vlc '
-
-                  Teste o VLC nativo:
-                  cvlc --rtsp-tcp "SUA_URL_RTSP"
-
-                  Ao rodar o app:
-                  export VLC_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/vlc/plugins
-                  export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
-                  dotnet run --project SolisDashboard.App
-                  """
-                : "Falha ao iniciar LibVLC. Confirme o pacote VideoLAN.LibVLC.Windows.";
-
-            ReportError(
-                "RTSP/LibVLC",
-                $"{ex}{Environment.NewLine}{Environment.NewLine}" +
-                $"Diagnóstico:{Environment.NewLine}{LibVlcHost.LastDiagnostics}{Environment.NewLine}{Environment.NewLine}" +
-                hint);
-            return false;
-        }
-    }
-
-    private void CreatePlayers(params string[] options)
-    {
-        _libVlc = new LibVLC(enableDebugLogs: true, options);
-        _libVlc.Log += (_, e) =>
-        {
-            if (e.Level >= LogLevel.Error)
-                AppLog.Append("LibVLC", $"[{e.Level}] {e.Module}: {e.Message}");
-        };
-
-        if (_primaryUsesRtsp)
-        {
-            PrimaryMediaPlayer = new MediaPlayer(_libVlc);
-            PlayRtsp(PrimaryMediaPlayer, _options.Cameras.Primary.RtspUrl);
-        }
-
-        if (_secondaryUsesRtsp)
-        {
-            SecondaryMediaPlayer = new MediaPlayer(_libVlc);
-            PlayRtsp(SecondaryMediaPlayer, _options.Cameras.Secondary.RtspUrl);
-        }
-    }
-
-    private void PlayRtsp(MediaPlayer player, string rtspUrl)
-    {
-        using var media = new Media(_libVlc!, rtspUrl, FromType.FromLocation);
-        media.AddOption(":rtsp-tcp");
-        media.AddOption(":network-caching=400");
-        player.Play(media);
     }
 
     [RelayCommand]
@@ -590,13 +657,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _systemTimer.Stop();
         _systemMetrics.Dispose();
 
-        PrimaryMediaPlayer?.Stop();
-        SecondaryMediaPlayer?.Stop();
-        PrimaryMediaPlayer?.Dispose();
-        SecondaryMediaPlayer?.Dispose();
-        _libVlc?.Dispose();
+        _primaryPlayer.Dispose();
+        _secondaryPlayer.Dispose();
 
         _solis?.Dispose();
         _weather?.Dispose();
+        _primaryCameraFrameField?.Dispose();
+        _secondaryCameraFrameField?.Dispose();
     }
 }
