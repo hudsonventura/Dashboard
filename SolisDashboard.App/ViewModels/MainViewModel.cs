@@ -15,6 +15,7 @@ using Microsoft.Extensions.Configuration;
 using SkiaSharp;
 using SolisDashboard.App.Diagnostics;
 using SolisDashboard.App.Models;
+using SolisDashboard.App.Native;
 using SolisDashboard.Configuration;
 using SolisDashboard.Display;
 using SolisDashboard.Models;
@@ -334,66 +335,46 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private bool StartRtspPlayers()
     {
-        Exception? firstError = null;
         try
         {
-            var libDir = InitializeLibVlcNative();
-            EnsureVlcPluginPath(libDir);
-            CreatePlayers(
-                "--verbose=1",
-                "--network-caching=400",
-                "--rtsp-tcp",
-                "--no-audio",
-                "--aout=dummy");
+            LibVlcHost.Initialize();
+            CreatePlayers(LibVlcHost.BuildOptions());
             CameraStatus = "";
             return true;
         }
         catch (Exception ex)
         {
-            firstError = ex;
-            try
-            {
-                PrimaryMediaPlayer?.Dispose();
-                SecondaryMediaPlayer?.Dispose();
-                PrimaryMediaPlayer = null;
-                SecondaryMediaPlayer = null;
-                _libVlc?.Dispose();
-                _libVlc = null;
+            UseRtspCameras = false;
 
-                CreatePlayers(
-                    "--verbose=2",
-                    "--network-caching=400",
-                    "--rtsp-tcp",
-                    "--no-audio");
-                CameraStatus = "";
-                return true;
-            }
-            catch (Exception retryEx)
-            {
-                UseRtspCameras = false;
-                var hint = OperatingSystem.IsLinux()
-                    ? """
-                      LibVLC falhou no Linux. No Ubuntu 24.04 (XFCE) execute:
+            var hint = OperatingSystem.IsLinux()
+                ? """
+                  LibVLC falhou no Linux. Rode no servidor:
 
-                      sudo apt update
-                      sudo apt install -y vlc libvlc-dev libx11-dev
+                  sudo apt update
+                  sudo apt install -y vlc libvlc5 libvlc-dev libvlccore9 libx11-dev
+                  sudo ldconfig
 
-                      Depois confira:
-                      ls -l /usr/lib/x86_64-linux-gnu/libvlc.so*
-                      ls /usr/lib/x86_64-linux-gnu/vlc/plugins | head
+                  Confira:
+                  ls -l /usr/lib/x86_64-linux-gnu/libvlc.so*
+                  ls /usr/lib/x86_64-linux-gnu/vlc/plugins | head
+                  dpkg -l | grep -E 'libvlc|vlc '
 
-                      Se necessário:
-                      export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
-                      export VLC_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/vlc/plugins
-                      """
-                    : "Falha ao iniciar LibVLC.";
+                  Teste o VLC nativo:
+                  cvlc --rtsp-tcp "SUA_URL_RTSP"
 
-                ReportError(
-                    "RTSP/LibVLC",
-                    $"1ª tentativa:{Environment.NewLine}{firstError}{Environment.NewLine}{Environment.NewLine}" +
-                    $"2ª tentativa:{Environment.NewLine}{retryEx}{Environment.NewLine}{Environment.NewLine}{hint}");
-                return false;
-            }
+                  Ao rodar o app:
+                  export VLC_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/vlc/plugins
+                  export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+                  dotnet run --project SolisDashboard.App
+                  """
+                : "Falha ao iniciar LibVLC. Confirme o pacote VideoLAN.LibVLC.Windows.";
+
+            ReportError(
+                "RTSP/LibVLC",
+                $"{ex}{Environment.NewLine}{Environment.NewLine}" +
+                $"Diagnóstico:{Environment.NewLine}{LibVlcHost.LastDiagnostics}{Environment.NewLine}{Environment.NewLine}" +
+                hint);
+            return false;
         }
     }
 
@@ -416,70 +397,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             SecondaryMediaPlayer = new MediaPlayer(_libVlc);
             PlayRtsp(SecondaryMediaPlayer, _options.Cameras.Secondary.RtspUrl);
-        }
-    }
-
-    private static string? InitializeLibVlcNative()
-    {
-        if (OperatingSystem.IsLinux())
-        {
-            string[] candidates =
-            [
-                "/usr/lib/x86_64-linux-gnu",
-                "/usr/lib/aarch64-linux-gnu",
-                "/usr/lib",
-                "/usr/lib64",
-                "/usr/local/lib"
-            ];
-
-            foreach (var dir in candidates)
-            {
-                if (!Directory.Exists(dir))
-                    continue;
-                if (!HasLibVlc(dir))
-                    continue;
-
-                try
-                {
-                    Core.Initialize(dir);
-                    return dir;
-                }
-                catch
-                {
-                    // try next path
-                }
-            }
-        }
-
-        Core.Initialize();
-        return null;
-    }
-
-    private static bool HasLibVlc(string dir) =>
-        File.Exists(Path.Combine(dir, "libvlc.so")) ||
-        File.Exists(Path.Combine(dir, "libvlc.so.5")) ||
-        Directory.EnumerateFiles(dir, "libvlc.so*").Any();
-
-    private static void EnsureVlcPluginPath(string? libDir)
-    {
-        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("VLC_PLUGIN_PATH")))
-            return;
-
-        string[] pluginCandidates =
-        [
-            libDir is null ? "" : Path.Combine(libDir, "vlc", "plugins"),
-            "/usr/lib/x86_64-linux-gnu/vlc/plugins",
-            "/usr/lib/aarch64-linux-gnu/vlc/plugins",
-            "/usr/lib/vlc/plugins",
-            "/usr/lib64/vlc/plugins"
-        ];
-
-        foreach (var path in pluginCandidates)
-        {
-            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
-                continue;
-            Environment.SetEnvironmentVariable("VLC_PLUGIN_PATH", path);
-            return;
         }
     }
 
