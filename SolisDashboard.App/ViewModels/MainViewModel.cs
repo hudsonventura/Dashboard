@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -139,7 +142,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _errorMessage = "";
     [ObservableProperty] private string _diagnosticLog = "";
     [ObservableProperty] private bool _hasDiagnosticLog;
+    [ObservableProperty] private bool _isDiagnosticPanelOpen;
     [ObservableProperty] private string _logFilePath = "";
+    [ObservableProperty] private string _copyDiagnosticStatus = "";
     [ObservableProperty] private string _inverterSnText = "-";
     [ObservableProperty] private string _modelText = "S6-GR1P6K-S";
     [ObservableProperty] private string _updatedText = "-";
@@ -229,25 +234,65 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void ReportError(string category, Exception ex)
     {
         var full = AppLog.Append(category, ex);
-        DiagnosticLog = full.Trim();
-        HasDiagnosticLog = true;
+        AppendDiagnostic(full.Trim());
         ErrorMessage = ex.Message;
-        CameraStatus = $"{category}: {ex.Message}";
     }
 
     private void ReportError(string category, string message)
     {
         var full = AppLog.Append(category, message);
-        DiagnosticLog = full.Trim();
-        HasDiagnosticLog = true;
+        AppendDiagnostic(full.Trim());
         ErrorMessage = message.Split('\n')[0].Trim();
-        CameraStatus = $"{category}: {ErrorMessage}";
+    }
+
+    private void AppendDiagnostic(string entry)
+    {
+        DiagnosticLog = string.IsNullOrWhiteSpace(DiagnosticLog)
+            ? entry
+            : $"{DiagnosticLog}{Environment.NewLine}{Environment.NewLine}---{Environment.NewLine}{Environment.NewLine}{entry}";
+        HasDiagnosticLog = true;
+        CopyDiagnosticStatus = "";
     }
 
     [RelayCommand]
-    private void DismissDiagnostic()
+    private void ToggleDiagnostic()
     {
-        HasDiagnosticLog = false;
+        if (!HasDiagnosticLog)
+            return;
+        IsDiagnosticPanelOpen = !IsDiagnosticPanelOpen;
+    }
+
+    [RelayCommand]
+    private void CloseDiagnostic()
+    {
+        IsDiagnosticPanelOpen = false;
+    }
+
+    [RelayCommand]
+    private async Task CopyDiagnosticAsync()
+    {
+        if (string.IsNullOrWhiteSpace(DiagnosticLog))
+            return;
+
+        try
+        {
+            var clipboard = Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow?.Clipboard
+                : null;
+
+            if (clipboard is null)
+            {
+                CopyDiagnosticStatus = "Clipboard indisponível";
+                return;
+            }
+
+            await clipboard.SetTextAsync(DiagnosticLog);
+            CopyDiagnosticStatus = "Copiado";
+        }
+        catch (Exception ex)
+        {
+            CopyDiagnosticStatus = $"Falha ao copiar: {ex.Message}";
+        }
     }
 
     private void RefreshSystemMetrics()
