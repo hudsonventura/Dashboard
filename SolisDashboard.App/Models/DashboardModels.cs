@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace SolisDashboard.App.Models;
 
 public sealed class GenerationPoint
@@ -22,4 +24,11 @@ public sealed class ForecastDayItem
     public string TempRange { get; init; } = "";
     public string Rain { get; init; } = "";
     public string Wind { get; init; } = "";
+}
+
+public partial class CpuCoreItem : ObservableObject
+{
+    [ObservableProperty] private string _name = "";
+    [ObservableProperty] private double _usagePercent;
+    [ObservableProperty] private string _usageText = "0%";
 }

@@ -4,197 +4,338 @@
         xmlns:models="using:SolisDashboard.App.Models"
         xmlns:conv="using:SolisDashboard.App.Converters"
         xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+        xmlns:vlc="using:LibVLCSharp.Avalonia"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="860"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
         x:Class="SolisDashboard.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Solis Dashboard"
-        Width="1320" Height="900"
-        MinWidth="1100" MinHeight="760"
+        Width="1280" Height="720"
+        MinWidth="1280" MinHeight="720"
+        WindowState="Maximized"
         Background="{DynamicResource AppBg}">
 
   <Window.Styles>
     <Style Selector="Border.card">
       <Setter Property="Background" Value="{DynamicResource CardBg}" />
-      <Setter Property="CornerRadius" Value="16" />
-      <Setter Property="Padding" Value="16" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10" />
       <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
+    <Style Selector="Border.metric">
+      <Setter Property="Background" Value="#14FFFFFF" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="8,6" />
+    </Style>
     <Style Selector="TextBlock.section">
-      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
-      <Setter Property="Margin" Value="0,0,0,10" />
+      <Setter Property="Margin" Value="0,0,0,6" />
     </Style>
     <Style Selector="TextBlock.metric-label">
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="10" />
       <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
     </Style>
     <Style Selector="TextBlock.metric-value">
-      <Setter Property="FontSize" Value="22" />
+      <Setter Property="FontSize" Value="14" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
     </Style>
+    <Style Selector="ProgressBar.sys">
+      <Setter Property="Height" Value="6" />
+      <Setter Property="Minimum" Value="0" />
+      <Setter Property="Maximum" Value="100" />
+      <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+      <Setter Property="Background" Value="#22FFFFFF" />
+    </Style>
   </Window.Styles>
 
-  <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="16">
+  <!-- Layout 16:9 — esquerda ~30% | direita ~70% -->
+  <Grid Margin="10" ColumnDefinitions="3*,7*" ColumnSpacing="10">
 
-    <Border Grid.Row="0" Classes="card" Padding="20,16">
-      <Grid ColumnDefinitions="*,Auto">
-        <StackPanel Spacing="4">
-          <TextBlock Text="Solis Dashboard" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource Accent}" />
-          <TextBlock FontSize="14" Foreground="{DynamicResource PrimaryText}">
-            <Run Text="Modelo " /><Run Text="{Binding ModelText}" FontWeight="SemiBold" />
-            <Run Text="  ·  SN " /><Run Text="{Binding InverterSnText}" />
-            <Run Text="  ·  " /><Run Text="{Binding StateText}" FontWeight="SemiBold" />
-          </TextBlock>
-          <TextBlock FontSize="12" Foreground="{DynamicResource MutedText}" Text="{Binding StatusMessage}" />
-          <TextBlock FontSize="12" Foreground="#E57373" Text="{Binding ErrorMessage}"
-                     IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-        </StackPanel>
+    <!-- ===== COLUNA ESQUERDA ===== -->
+    <Grid Grid.Column="0" RowDefinitions="22*,40*,38*" RowSpacing="10">
 
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
-            <TextBlock Text="{Binding CountdownText}" FontSize="12" Foreground="{DynamicResource MutedText}" HorizontalAlignment="Right" />
-            <TextBlock Text="{Binding UpdatedText, StringFormat=Último sync: {0}}" FontSize="12" Foreground="{DynamicResource MutedText}" HorizontalAlignment="Right" />
-          </StackPanel>
-          <Button Content="Atualizar" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}"
-                  Padding="16,10" Background="{DynamicResource Accent}" Foreground="#1A1F26"
-                  FontWeight="SemiBold" CornerRadius="10" />
-        </StackPanel>
-      </Grid>
-    </Border>
-
-    <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
-      <Border Grid.Column="0" Classes="card">
-        <StackPanel>
-          <TextBlock Classes="section" Text="DC · PV1" />
-          <TextBlock Classes="metric-label" Text="Tensão" />
-          <TextBlock Classes="metric-value" Text="{Binding Pv1Voltage}" />
-          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Corrente" />
-          <TextBlock Classes="metric-value" Text="{Binding Pv1Current}" />
-          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Potência" />
-          <TextBlock Classes="metric-value" Foreground="{DynamicResource Accent}" Text="{Binding Pv1Power}" />
-        </StackPanel>
-      </Border>
-      <Border Grid.Column="1" Classes="card">
-        <StackPanel>
-          <TextBlock Classes="section" Text="DC · PV2" />
-          <TextBlock Classes="metric-label" Text="Tensão" />
-          <TextBlock Classes="metric-value" Text="{Binding Pv2Voltage}" />
-          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Corrente" />
-          <TextBlock Classes="metric-value" Text="{Binding Pv2Current}" />
-          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Potência" />
-          <TextBlock Classes="metric-value" Foreground="{DynamicResource Accent}" Text="{Binding Pv2Power}" />
-        </StackPanel>
-      </Border>
-      <Border Grid.Column="2" Classes="card">
-        <StackPanel>
-          <TextBlock Classes="section" Text="AC · Saída" />
-          <TextBlock Classes="metric-label" Text="Potência" />
-          <TextBlock Classes="metric-value" Foreground="{DynamicResource Accent}" Text="{Binding AcPower}" />
-          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Corrente" />
-          <TextBlock Classes="metric-value" Text="{Binding AcCurrent}" />
-          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Geração hoje" />
-          <TextBlock Classes="metric-value" Text="{Binding EnergyTodayText}" />
-        </StackPanel>
-      </Border>
-      <Border Grid.Column="3" Classes="card">
-        <StackPanel>
-          <TextBlock Classes="section" Text="Geral" />
-          <TextBlock Classes="metric-label" Text="IGBT Temperature" />
-          <TextBlock Classes="metric-value" Text="{Binding IgbtTemp}" />
-          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Temp. inversor" />
-          <TextBlock Classes="metric-value" Text="{Binding InverterTemp}" />
-          <TextBlock Classes="metric-label" Margin="0,10,0,0" Text="Geração total" />
-          <TextBlock Classes="metric-value" Text="{Binding EnergyTotalText}" />
-        </StackPanel>
-      </Border>
-    </Grid>
-
-    <Grid Grid.Row="2" ColumnDefinitions="2.2*,*" ColumnSpacing="12">
-      <Border Grid.Column="0" Classes="card">
+      <!-- Câmera secundária 4:3 -->
+      <Border Grid.Row="0" Classes="card" Padding="8">
         <DockPanel>
-          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Classes="section" Text="Geração de hoje" Margin="0" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding ChartPeakText}" Margin="12,0,0,0" VerticalAlignment="Center"
-                       FontSize="12" Foreground="{DynamicResource MutedText}" />
-          </StackPanel>
-          <lvc:CartesianChart Series="{Binding ChartSeries}"
-                              XAxes="{Binding XAxes}"
-                              YAxes="{Binding YAxes}"
-                              LegendPosition="Hidden"
-                              ZoomMode="X"
-                              MinHeight="300" />
+          <TextBlock DockPanel.Dock="Top" Classes="section"
+                     Text="{Binding SecondaryCameraName, StringFormat=Câmera secundária · {0}}" />
+          <TextBlock DockPanel.Dock="Bottom" Text="{Binding CameraStatus}" FontSize="10"
+                     Foreground="#E57373" Margin="0,4,0,0"
+                     IsVisible="{Binding CameraStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <Viewbox Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Border Width="640" Height="480" Background="#0D1117" CornerRadius="8" ClipToBounds="True">
+              <Panel>
+                <vlc:VideoView MediaPlayer="{Binding SecondaryMediaPlayer}"
+                               IsVisible="{Binding UseRtspCameras}"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Stretch" />
+                <Panel IsVisible="{Binding !UseRtspCameras}">
+                  <TextBlock Text="Sem vídeo"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource MutedText}" />
+                  <Image Source="{Binding SecondaryCameraFrame}"
+                         Stretch="Uniform"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center" />
+                </Panel>
+              </Panel>
+            </Border>
+          </Viewbox>
         </DockPanel>
       </Border>
 
-      <Border Grid.Column="1" Classes="card">
-        <StackPanel>
-          <TextBlock Classes="section" Text="Clima atual · Open-Meteo" />
-          <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,4,0,16">
-            <Image Width="72" Height="72"
-                   Source="{Binding WeatherIconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
-            <StackPanel VerticalAlignment="Center" Spacing="2">
-              <TextBlock Text="{Binding WeatherTemp}" FontSize="34" FontWeight="Bold" Foreground="{DynamicResource PrimaryText}" />
-              <TextBlock Text="{Binding WeatherCondition}" FontSize="15" Foreground="{DynamicResource Accent}" />
-              <TextBlock Text="{Binding WeatherTime}" FontSize="12" Foreground="{DynamicResource MutedText}" />
+      <!-- Weather -->
+      <Border Grid.Row="1" Classes="card" Padding="10">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="section" Text="Weather · Open-Meteo" />
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Image Width="48" Height="48"
+                       Source="{Binding WeatherIconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
+                <StackPanel VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="{Binding WeatherTemp}" FontSize="26" FontWeight="Bold"
+                             Foreground="{DynamicResource PrimaryText}" />
+                  <TextBlock Text="{Binding WeatherCondition}" FontSize="12"
+                             Foreground="{DynamicResource Accent}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding WeatherTime}" FontSize="10"
+                             Foreground="{DynamicResource MutedText}" />
+                </StackPanel>
+              </StackPanel>
+
+              <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="6" ColumnSpacing="8">
+                <StackPanel Grid.Row="0" Grid.Column="0">
+                  <TextBlock Classes="metric-label" Text="Sensação" />
+                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding WeatherFeelsLike}" />
+                </StackPanel>
+                <StackPanel Grid.Row="0" Grid.Column="1">
+                  <TextBlock Classes="metric-label" Text="Umidade" />
+                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding WeatherHumidity}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="0">
+                  <TextBlock Classes="metric-label" Text="Vento" />
+                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding WeatherWind}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="1">
+                  <TextBlock Classes="metric-label" Text="Precipitação" />
+                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding WeatherPrecip}" />
+                </StackPanel>
+              </Grid>
+
+              <TextBlock Classes="section" Text="Próximos 5 dias" Margin="0,2,0,0" />
+              <ItemsControl ItemsSource="{Binding ForecastDays}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="models:ForecastDayItem">
+                    <Border Margin="0,0,0,6" Padding="6" CornerRadius="6" Background="#14FFFFFF">
+                      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center"
+                               Source="{Binding IconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding DateLabel}" FontSize="11" FontWeight="SemiBold"
+                                     Foreground="{DynamicResource PrimaryText}" />
+                          <TextBlock Text="{Binding Condition}" FontSize="10"
+                                     Foreground="{DynamicResource MutedText}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                          <TextBlock Text="{Binding TempRange}" FontSize="11" FontWeight="SemiBold"
+                                     Foreground="{DynamicResource Accent}" HorizontalAlignment="Right" />
+                          <TextBlock Text="{Binding Rain}" FontSize="9"
+                                     Foreground="{DynamicResource MutedText}" HorizontalAlignment="Right" />
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
             </StackPanel>
-          </StackPanel>
-          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="10">
-            <StackPanel Grid.Row="0" Grid.Column="0">
-              <TextBlock Classes="metric-label" Text="Sensação" />
-              <TextBlock Classes="metric-value" FontSize="18" Text="{Binding WeatherFeelsLike}" />
-            </StackPanel>
-            <StackPanel Grid.Row="0" Grid.Column="1">
-              <TextBlock Classes="metric-label" Text="Umidade" />
-              <TextBlock Classes="metric-value" FontSize="18" Text="{Binding WeatherHumidity}" />
-            </StackPanel>
-            <StackPanel Grid.Row="1" Grid.Column="0">
-              <TextBlock Classes="metric-label" Text="Vento" />
-              <TextBlock Classes="metric-value" FontSize="18" Text="{Binding WeatherWind}" />
-            </StackPanel>
-            <StackPanel Grid.Row="1" Grid.Column="1">
-              <TextBlock Classes="metric-label" Text="Precipitação" />
-              <TextBlock Classes="metric-value" FontSize="18" Text="{Binding WeatherPrecip}" />
-            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+
+      <!-- Sistema (htop) -->
+      <Border Grid.Row="2" Classes="card" Padding="10">
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+            <TextBlock Classes="section" Text="Sistema" Margin="0" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding SystemPlatform}" FontSize="10"
+                       Foreground="{DynamicResource MutedText}" VerticalAlignment="Center" />
           </Grid>
-        </StackPanel>
+
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="metric-label" Text="Processadores" />
+              <ItemsControl ItemsSource="{Binding CpuCores}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="models:CpuCoreItem">
+                    <Grid ColumnDefinitions="48,*,44" ColumnSpacing="6" Margin="0,0,0,4">
+                      <TextBlock Text="{Binding Name}" FontSize="11"
+                                 Foreground="{DynamicResource MutedText}" VerticalAlignment="Center" />
+                      <ProgressBar Grid.Column="1" Classes="sys" Value="{Binding UsagePercent}"
+                                   VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Text="{Binding UsageText}" FontSize="11"
+                                 Foreground="{DynamicResource PrimaryText}"
+                                 HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <StackPanel Spacing="3">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="metric-label" Text="Memória" />
+                  <TextBlock Grid.Column="1" Text="{Binding MemoryText}" FontSize="11"
+                             Foreground="{DynamicResource PrimaryText}" />
+                </Grid>
+                <ProgressBar Classes="sys" Value="{Binding MemoryPercent}" />
+              </StackPanel>
+
+              <StackPanel Spacing="3">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="metric-label" Text="Swap" />
+                  <TextBlock Grid.Column="1" Text="{Binding SwapText}" FontSize="11"
+                             Foreground="{DynamicResource PrimaryText}" />
+                </Grid>
+                <ProgressBar Classes="sys" Value="{Binding SwapPercent}" />
+              </StackPanel>
+
+              <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                <TextBlock Classes="metric-label" Text="Temp. CPU" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding CpuTempText}" FontSize="14" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Accent}" />
+              </Grid>
+            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
       </Border>
     </Grid>
 
-    <Border Grid.Row="3" Classes="card">
-      <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Classes="section" Text="Previsão — próximos 5 dias" />
-        <ItemsControl ItemsSource="{Binding ForecastDays}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <UniformGrid Columns="5" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="models:ForecastDayItem">
-              <Border Margin="6" Padding="12" CornerRadius="12" Background="#14FFFFFF">
-                <StackPanel Spacing="6" HorizontalAlignment="Center">
-                  <TextBlock Text="{Binding DateLabel}" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource PrimaryText}" />
-                  <Image Width="44" Height="44" HorizontalAlignment="Center"
-                         Source="{Binding IconKey, Converter={x:Static conv:WeatherIconConverter.Instance}}" />
-                  <TextBlock Text="{Binding Condition}" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                             HorizontalAlignment="Center" Foreground="{DynamicResource MutedText}" />
-                  <TextBlock Text="{Binding TempRange}" FontSize="14" FontWeight="SemiBold"
-                             HorizontalAlignment="Center" Foreground="{DynamicResource Accent}" />
-                  <TextBlock Text="{Binding Rain, StringFormat=Chuva {0}}" FontSize="11"
-                             HorizontalAlignment="Center" Foreground="{DynamicResource MutedText}" />
-                  <TextBlock Text="{Binding Wind, StringFormat=Vento {0}}" FontSize="11"
-                             HorizontalAlignment="Center" Foreground="{DynamicResource MutedText}" />
+    <!-- ===== COLUNA DIREITA ===== -->
+    <Grid Grid.Column="1" RowDefinitions="58*,42*" RowSpacing="10">
+
+      <!-- Câmera principal 4:3 -->
+      <Border Grid.Row="0" Classes="card" Padding="8">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="section"
+                     Text="{Binding PrimaryCameraName, StringFormat=Câmera principal · {0}}" />
+          <Viewbox Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Border Width="640" Height="480" Background="#0D1117" CornerRadius="8" ClipToBounds="True">
+              <Panel>
+                <vlc:VideoView MediaPlayer="{Binding PrimaryMediaPlayer}"
+                               IsVisible="{Binding UseRtspCameras}"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Stretch" />
+                <Panel IsVisible="{Binding !UseRtspCameras}">
+                  <TextBlock Text="Sem vídeo"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource MutedText}" />
+                  <Image Source="{Binding PrimaryCameraFrame}"
+                         Stretch="Uniform"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center" />
+                </Panel>
+              </Panel>
+            </Border>
+          </Viewbox>
+        </DockPanel>
+      </Border>
+
+      <!-- Solis: métricas à esquerda + gráfico menor à direita -->
+      <Border Grid.Row="1" Classes="card" Padding="10">
+        <Grid ColumnDefinitions="42*,58*" ColumnSpacing="10">
+
+          <!-- Propriedades / métricas -->
+          <DockPanel Grid.Column="0">
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="section" Text="Solis Inversor" Margin="0" />
+                <TextBlock FontSize="11" Foreground="{DynamicResource PrimaryText}" TextWrapping="Wrap">
+                  <Run Text="{Binding ModelText}" FontWeight="SemiBold" />
+                  <Run Text=" · " />
+                  <Run Text="{Binding StateText}" />
+                </TextBlock>
+                <TextBlock FontSize="11" Foreground="{DynamicResource Accent}">
+                  <Run Text="Hoje " />
+                  <Run Text="{Binding EnergyTodayText}" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock FontSize="10" Foreground="{DynamicResource MutedText}" Text="{Binding StatusMessage}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock FontSize="10" Foreground="#E57373" Text="{Binding ErrorMessage}"
+                           IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Top" Margin="8,0,0,0">
+                <Button Content="Atualizar" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}"
+                        Padding="10,6" Background="{DynamicResource Accent}" Foreground="#1A1F26"
+                        FontWeight="SemiBold" CornerRadius="8" HorizontalAlignment="Right" />
+                <TextBlock Text="{Binding CountdownText}" FontSize="9"
+                           Foreground="{DynamicResource MutedText}" HorizontalAlignment="Right" />
+                <TextBlock Text="{Binding UpdatedText}" FontSize="9"
+                           Foreground="{DynamicResource MutedText}" HorizontalAlignment="Right" />
+              </StackPanel>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="6" RowSpacing="6">
+              <Border Grid.Row="0" Grid.Column="0" Classes="metric">
+                <StackPanel Spacing="1">
+                  <TextBlock Classes="metric-label" Text="PV1" />
+                  <TextBlock Classes="metric-value" Foreground="{DynamicResource Accent}" Text="{Binding Pv1Power}" />
+                  <TextBlock FontSize="10" Foreground="{DynamicResource MutedText}" Text="{Binding Pv1Voltage}" />
+                  <TextBlock FontSize="10" Foreground="{DynamicResource MutedText}" Text="{Binding Pv1Current}" />
                 </StackPanel>
               </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </DockPanel>
-    </Border>
+              <Border Grid.Row="0" Grid.Column="1" Classes="metric">
+                <StackPanel Spacing="1">
+                  <TextBlock Classes="metric-label" Text="PV2" />
+                  <TextBlock Classes="metric-value" Foreground="{DynamicResource Accent}" Text="{Binding Pv2Power}" />
+                  <TextBlock FontSize="10" Foreground="{DynamicResource MutedText}" Text="{Binding Pv2Voltage}" />
+                  <TextBlock FontSize="10" Foreground="{DynamicResource MutedText}" Text="{Binding Pv2Current}" />
+                </StackPanel>
+              </Border>
+              <Border Grid.Row="1" Grid.Column="0" Classes="metric">
+                <StackPanel Spacing="1">
+                  <TextBlock Classes="metric-label" Text="AC Potência" />
+                  <TextBlock Classes="metric-value" Foreground="{DynamicResource Accent}" Text="{Binding AcPower}" />
+                  <TextBlock FontSize="10" Foreground="{DynamicResource MutedText}" Text="{Binding AcCurrent}" />
+                </StackPanel>
+              </Border>
+              <Border Grid.Row="1" Grid.Column="1" Classes="metric">
+                <StackPanel Spacing="1">
+                  <TextBlock Classes="metric-label" Text="IGBT" />
+                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding IgbtTemp}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+              <Border Grid.Row="2" Grid.Column="0" Classes="metric">
+                <StackPanel Spacing="1">
+                  <TextBlock Classes="metric-label" Text="Temp. inversor" />
+                  <TextBlock Classes="metric-value" Text="{Binding InverterTemp}" />
+                </StackPanel>
+              </Border>
+              <Border Grid.Row="2" Grid.Column="1" Classes="metric">
+                <StackPanel Spacing="1">
+                  <TextBlock Classes="metric-label" Text="Energia total" />
+                  <TextBlock Classes="metric-value" FontSize="13" Text="{Binding EnergyTotalText}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </Grid>
+          </DockPanel>
+
+          <!-- Gráfico compacto -->
+          <DockPanel Grid.Column="1">
+            <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="{DynamicResource MutedText}"
+                       Text="{Binding ChartPeakText}" Margin="0,0,0,4" />
+            <lvc:CartesianChart Series="{Binding ChartSeries}"
+                                XAxes="{Binding XAxes}"
+                                YAxes="{Binding YAxes}"
+                                LegendPosition="Hidden"
+                                ZoomMode="X" />
+          </DockPanel>
+        </Grid>
+      </Border>
+    </Grid>
   </Grid>
 </Window>
