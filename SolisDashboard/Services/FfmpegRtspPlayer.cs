@@ -13,6 +13,9 @@ public sealed class FfmpegRtspPlayer : IDisposable
     private Process? _process;
     private CancellationTokenSource? _cts;
     private bool _disposed;
+    /// <summary>Último JPEG; trocado atomicamente. Consumidor descarta o anterior.</summary>
+    private byte[]? _latestJpeg;
+    private int _frameNotifyScheduled;
 
     public string Name { get; }
     public string RtspUrl { get; private set; } = "";
@@ -32,8 +35,9 @@ public sealed class FfmpegRtspPlayer : IDisposable
             throw new ArgumentException("RtspUrl vazia.", nameof(rtspUrl));
 
         RtspUrl = rtspUrl.Trim();
-        fps = Math.Clamp(fps, 1, 30);
-        maxWidth = Math.Clamp(maxWidth, 160, 1920);
+        // No Linux, FPS alto + decode Skia estoura RAM; limita na origem.
+        fps = Math.Clamp(fps, 1, 12);
+        maxWidth = Math.Clamp(maxWidth, 160, 1280);
 
         _cts = new CancellationTokenSource();
         var psi = new ProcessStartInfo
@@ -62,7 +66,8 @@ public sealed class FfmpegRtspPlayer : IDisposable
 
         _process = process;
         var token = _cts.Token;
-        _ = Task.Run(() => ReadMjpegLoop(process.StandardOutput.BaseStream, token), token);
+        var minFrameGap = TimeSpan.FromSeconds(1d / fps);
+        _ = Task.Run(() => ReadMjpegLoop(process.StandardOutput.BaseStream, minFrameGap, token), token);
         _ = Task.Run(() => ReadStderrLoop(process.StandardError, token), token);
     }
 
@@ -70,9 +75,16 @@ public sealed class FfmpegRtspPlayer : IDisposable
     {
         yield return "-hide_banner";
         yield return "-loglevel";
-        yield return "warning";
+        yield return "error";
+        yield return "-nostdin";
         yield return "-rtsp_transport";
         yield return "tcp";
+        yield return "-fflags";
+        yield return "nobuffer";
+        yield return "-flags";
+        yield return "low_delay";
+        yield return "-threads";
+        yield return "1";
         yield return "-i";
         yield return rtspUrl;
         yield return "-an";
@@ -81,16 +93,19 @@ public sealed class FfmpegRtspPlayer : IDisposable
         yield return "-f";
         yield return "mjpeg";
         yield return "-q:v";
-        yield return "6";
+        yield return "7";
         yield return "pipe:1";
     }
 
-    private void ReadMjpegLoop(Stream stream, CancellationToken ct)
+    private void ReadMjpegLoop(Stream stream, TimeSpan minFrameGap, CancellationToken ct)
     {
         var buffer = new byte[64 * 1024];
-        var frame = new List<byte>(128 * 1024);
+        // Buffer reutilizável do frame atual (evita List<byte> + ToArray a cada frame sem necessidade).
+        var frameBuffer = new byte[512 * 1024];
+        var frameLength = 0;
         var prev = (byte)0;
         var inFrame = false;
+        var lastEmitted = Stopwatch.StartNew();
 
         try
         {
@@ -109,29 +124,45 @@ public sealed class FfmpegRtspPlayer : IDisposable
                         if (prev == 0xFF && b == 0xD8)
                         {
                             inFrame = true;
-                            frame.Clear();
-                            frame.Add(0xFF);
-                            frame.Add(0xD8);
+                            frameLength = 0;
+                            EnsureCapacity(ref frameBuffer, 2);
+                            frameBuffer[0] = 0xFF;
+                            frameBuffer[1] = 0xD8;
+                            frameLength = 2;
                         }
 
                         prev = b;
                         continue;
                     }
 
-                    frame.Add(b);
-                    if (prev == 0xFF && b == 0xD9 && frame.Count >= 4)
+                    EnsureCapacity(ref frameBuffer, frameLength + 1);
+                    frameBuffer[frameLength++] = b;
+
+                    if (prev == 0xFF && b == 0xD9 && frameLength >= 4)
                     {
-                        FrameReceived?.Invoke(frame.ToArray());
+                        // Backpressure: só emite se passou o intervalo E o consumidor já pegou o anterior
+                        // (ou substitui o latest sem notificar em excesso).
+                        if (lastEmitted.Elapsed >= minFrameGap)
+                        {
+                            var copy = new byte[frameLength];
+                            Buffer.BlockCopy(frameBuffer, 0, copy, 0, frameLength);
+                            var dropped = Interlocked.Exchange(ref _latestJpeg, copy);
+                            // JPEG substituído e nunca decodificado → elegível ao GC imediatamente.
+                            _ = dropped;
+                            lastEmitted.Restart();
+                            NotifyFrameIfNeeded();
+                        }
+
                         inFrame = false;
-                        frame.Clear();
+                        frameLength = 0;
                         prev = 0;
                         continue;
                     }
 
-                    if (frame.Count > 2 * 1024 * 1024)
+                    if (frameLength > 2 * 1024 * 1024)
                     {
                         inFrame = false;
-                        frame.Clear();
+                        frameLength = 0;
                         prev = 0;
                         continue;
                     }
@@ -145,6 +176,37 @@ public sealed class FfmpegRtspPlayer : IDisposable
             if (!ct.IsCancellationRequested)
                 ErrorOccurred?.Invoke($"{Name}: leitura MJPEG: {ex.Message}");
         }
+    }
+
+    private void NotifyFrameIfNeeded()
+    {
+        if (Interlocked.CompareExchange(ref _frameNotifyScheduled, 1, 0) != 0)
+            return;
+
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try
+            {
+                var jpeg = Interlocked.Exchange(ref _latestJpeg, null);
+                if (jpeg is { Length: > 0 })
+                    FrameReceived?.Invoke(jpeg);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _frameNotifyScheduled, 0);
+                // Se chegou frame novo enquanto notificávamos, agenda de novo.
+                if (Volatile.Read(ref _latestJpeg) is not null)
+                    NotifyFrameIfNeeded();
+            }
+        });
+    }
+
+    private static void EnsureCapacity(ref byte[] buffer, int needed)
+    {
+        if (needed <= buffer.Length)
+            return;
+        var newSize = Math.Max(needed, buffer.Length * 2);
+        Array.Resize(ref buffer, newSize);
     }
 
     private void ReadStderrLoop(StreamReader reader, CancellationToken ct)
@@ -204,6 +266,8 @@ public sealed class FfmpegRtspPlayer : IDisposable
 
             try { _cts?.Dispose(); } catch { /* ignore */ }
             _cts = null;
+            Interlocked.Exchange(ref _latestJpeg, null);
+            Interlocked.Exchange(ref _frameNotifyScheduled, 0);
         }
     }
 

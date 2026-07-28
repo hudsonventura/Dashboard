@@ -58,6 +58,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private byte[]? _pendingSecondaryJpeg;
     private int _primaryUiScheduled;
     private int _secondaryUiScheduled;
+    private long _nextPrimaryFrameTicks;
+    private long _nextSecondaryFrameTicks;
+    /// <summary>Intervalo mínimo entre decodes na UI (Linux Skia: Bitmap RGBA ~2–4 MB/frame).</summary>
+    private static readonly long MinFrameIntervalTicks = TimeSpan.FromMilliseconds(200).Ticks;
     private string? _lastCameraErrorKey;
     private DateTime _lastCameraErrorReportedUtc = DateTime.MinValue;
 
@@ -312,21 +316,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (Interlocked.CompareExchange(ref _primaryUiScheduled, 1, 0) != 0)
             return;
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            try
-            {
-                var data = Interlocked.Exchange(ref _pendingPrimaryJpeg, null);
-                if (data is not null)
-                    ApplyFrame(isPrimary: true, data);
-            }
-            finally
-            {
-                Interlocked.Exchange(ref _primaryUiScheduled, 0);
-                if (_pendingPrimaryJpeg is not null)
-                    SchedulePrimaryUi();
-            }
-        }, DispatcherPriority.Background);
+        Dispatcher.UIThread.Post(ProcessPrimaryFrame, DispatcherPriority.Background);
     }
 
     private void ScheduleSecondaryUi()
@@ -334,21 +324,79 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (Interlocked.CompareExchange(ref _secondaryUiScheduled, 1, 0) != 0)
             return;
 
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(ProcessSecondaryFrame, DispatcherPriority.Background);
+    }
+
+    private void ProcessPrimaryFrame()
+    {
+        try
         {
-            try
+            var now = DateTime.UtcNow.Ticks;
+            var nextAllowed = Interlocked.Read(ref _nextPrimaryFrameTicks);
+            if (now < nextAllowed)
             {
-                var data = Interlocked.Exchange(ref _pendingSecondaryJpeg, null);
-                if (data is not null)
-                    ApplyFrame(isPrimary: false, data);
+                var delay = TimeSpan.FromTicks(nextAllowed - now);
+                DispatcherTimer.RunOnce(() =>
+                {
+                    Interlocked.Exchange(ref _primaryUiScheduled, 0);
+                    if (_pendingPrimaryJpeg is not null)
+                        SchedulePrimaryUi();
+                }, delay);
+                return; // mantém _primaryUiScheduled=1 até o timer
             }
-            finally
+
+            var data = Interlocked.Exchange(ref _pendingPrimaryJpeg, null);
+            if (data is not null)
             {
-                Interlocked.Exchange(ref _secondaryUiScheduled, 0);
-                if (_pendingSecondaryJpeg is not null)
-                    ScheduleSecondaryUi();
+                ApplyFrame(isPrimary: true, data);
+                Interlocked.Exchange(ref _nextPrimaryFrameTicks, DateTime.UtcNow.Ticks + MinFrameIntervalTicks);
             }
-        }, DispatcherPriority.Background);
+
+            Interlocked.Exchange(ref _primaryUiScheduled, 0);
+            if (_pendingPrimaryJpeg is not null)
+                SchedulePrimaryUi();
+        }
+        catch
+        {
+            Interlocked.Exchange(ref _primaryUiScheduled, 0);
+            throw;
+        }
+    }
+
+    private void ProcessSecondaryFrame()
+    {
+        try
+        {
+            var now = DateTime.UtcNow.Ticks;
+            var nextAllowed = Interlocked.Read(ref _nextSecondaryFrameTicks);
+            if (now < nextAllowed)
+            {
+                var delay = TimeSpan.FromTicks(nextAllowed - now);
+                DispatcherTimer.RunOnce(() =>
+                {
+                    Interlocked.Exchange(ref _secondaryUiScheduled, 0);
+                    if (_pendingSecondaryJpeg is not null)
+                        ScheduleSecondaryUi();
+                }, delay);
+                return;
+            }
+
+            var data = Interlocked.Exchange(ref _pendingSecondaryJpeg, null);
+            if (data is not null)
+            {
+                ApplyFrame(isPrimary: false, data);
+                Interlocked.Exchange(ref _nextSecondaryFrameTicks, DateTime.UtcNow.Ticks + MinFrameIntervalTicks);
+            }
+
+            Interlocked.Exchange(ref _secondaryUiScheduled, 0);
+            if (_pendingSecondaryJpeg is not null)
+                ScheduleSecondaryUi();
+        }
+        catch
+        {
+            Interlocked.Exchange(ref _secondaryUiScheduled, 0);
+            throw;
+        }
     }
 
     private void ApplyFrame(bool isPrimary, byte[] jpeg)
@@ -358,12 +406,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         try
         {
-            using var ms = new MemoryStream(jpeg);
+            using var ms = new MemoryStream(jpeg, writable: false);
             var next = new Bitmap(ms);
             if (isPrimary)
             {
                 var prev = _primaryCameraFrameField;
                 _primaryCameraFrameField = next;
+                // Null antes de trocar ajuda o Skia/Avalonia no Linux a soltar a textura antiga.
+                PrimaryCameraFrame = null;
                 PrimaryCameraFrame = next;
                 prev?.Dispose();
             }
@@ -371,6 +421,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             {
                 var prev = _secondaryCameraFrameField;
                 _secondaryCameraFrameField = next;
+                SecondaryCameraFrame = null;
                 SecondaryCameraFrame = next;
                 prev?.Dispose();
             }
