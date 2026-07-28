@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 
 namespace SolisDashboard.App.Views;
 
@@ -9,6 +10,17 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         KeyDown += OnWindowKeyDown;
+        AddHandler(PointerPressedEvent, OnWindowPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
+
+    private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed &&
+            WindowState == WindowState.FullScreen)
+        {
+            WindowState = WindowState.Maximized;
+            e.Handled = true;
+        }
     }
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
