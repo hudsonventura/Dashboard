@@ -17,13 +17,22 @@ public sealed class SystemMetricsService : IDisposable
     private DateTime _diskExtrasUtc = DateTime.MinValue;
     private readonly Dictionary<string, (double? Temp, string Smart)> _diskExtrasCache = new(StringComparer.Ordinal);
     private static readonly TimeSpan DiskExtrasTtl = TimeSpan.FromSeconds(30);
+    private int _diskExtrasRefreshRunning;
 
     private static readonly HashSet<string> IgnoredFsTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "tmpfs", "devtmpfs", "devfs", "proc", "sysfs", "cgroup", "cgroup2", "pstore", "bpf",
         "debugfs", "tracefs", "securityfs", "fusectl", "configfs", "mqueue", "hugetlbfs",
         "overlay", "aufs", "squashfs", "iso9660", "udf", "ramfs", "rpc_pipefs", "binfmt_misc",
-        "autofs", "efivarfs", "nsfs", "fuse.gvfsd-fuse", "fuse.portal", "tracefs"
+        "autofs", "efivarfs", "nsfs", "fuse.gvfsd-fuse", "fuse.portal", "tracefs",
+        // Remotos — DriveInfo/statvfs pode travar o processo indefinidamente.
+        "nfs", "nfs4", "cifs", "smb", "smb3", "fuse.sshfs", "fuse.rclone", "afs", "gpfs"
+    };
+
+    private static readonly HashSet<string> LocalFsTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ext2", "ext3", "ext4", "xfs", "btrfs", "f2fs", "zfs", "vfat", "exfat", "ntfs",
+        "ntfs3", "fuseblk", "jfs", "reiserfs", "nilfs2"
     };
 
     public SystemMetricsSnapshot Sample()
@@ -396,6 +405,8 @@ public sealed class SystemMetricsService : IDisposable
                 var fsType = parts[2];
                 if (IgnoredFsTypes.Contains(fsType))
                     continue;
+                if (!LocalFsTypes.Contains(fsType))
+                    continue;
                 if (!source.StartsWith("/dev/", StringComparison.Ordinal))
                     continue;
                 if (source.StartsWith("/dev/loop", StringComparison.Ordinal) ||
@@ -411,29 +422,38 @@ public sealed class SystemMetricsService : IDisposable
             return [];
         }
 
-        // Prefer shorter/root mounts; dedupe by mount point.
         mounts = mounts
             .GroupBy(m => m.Mount, StringComparer.Ordinal)
             .Select(g => g.First())
             .OrderBy(m => m.Mount, StringComparer.Ordinal)
             .ToList();
 
-        RefreshDiskExtrasIfNeeded(mounts.Select(m => m.Source).Distinct(StringComparer.Ordinal));
+        // SMART/temp em background — nunca bloqueia a UI (smartctl pode travar sem permissão/root).
+        ScheduleDiskExtrasRefresh(mounts.Select(m => m.Source).Distinct(StringComparer.Ordinal).ToList());
 
         var disks = new List<DiskMetrics>();
         foreach (var (source, mount, _) in mounts)
         {
             try
             {
+                // DriveInfo em mount local costuma ser rápido; se falhar, ignora.
                 var info = new DriveInfo(mount);
                 if (!info.IsReady || info.TotalSize <= 0)
                     continue;
 
                 var total = (double)info.TotalSize;
-                var used = total - info.AvailableFreeSpace;
+                var used = Math.Max(0, total - info.AvailableFreeSpace);
                 var pct = Math.Clamp(100d * used / total, 0d, 100d);
 
-                _diskExtrasCache.TryGetValue(source, out var extras);
+                string smart;
+                double? temp;
+                lock (_gate)
+                {
+                    _diskExtrasCache.TryGetValue(source, out var extras);
+                    temp = extras.Temp;
+                    smart = string.IsNullOrWhiteSpace(extras.Smart) ? "N/D" : extras.Smart;
+                }
+
                 disks.Add(new DiskMetrics
                 {
                     Device = source,
@@ -441,8 +461,8 @@ public sealed class SystemMetricsService : IDisposable
                     UsedBytes = used,
                     TotalBytes = total,
                     UsagePercent = pct,
-                    TemperatureCelsius = extras.Temp,
-                    SmartStatus = string.IsNullOrWhiteSpace(extras.Smart) ? "N/D" : extras.Smart
+                    TemperatureCelsius = temp,
+                    SmartStatus = smart
                 });
             }
             catch
@@ -454,22 +474,48 @@ public sealed class SystemMetricsService : IDisposable
         return disks;
     }
 
-    private void RefreshDiskExtrasIfNeeded(IEnumerable<string> sources)
+    private void ScheduleDiskExtrasRefresh(List<string> sources)
     {
         var now = DateTime.UtcNow;
-        if (now - _diskExtrasUtc < DiskExtrasTtl && _diskExtrasCache.Count > 0)
-            return;
-
-        _diskExtrasCache.Clear();
-        foreach (var source in sources)
+        lock (_gate)
         {
-            var block = ResolveBlockDeviceName(source);
-            var temp = ReadBlockTemperature(block);
-            var smart = ReadSmartStatus(source, block);
-            _diskExtrasCache[source] = (temp, smart);
+            if (now - _diskExtrasUtc < DiskExtrasTtl && _diskExtrasCache.Count > 0)
+                return;
         }
 
-        _diskExtrasUtc = now;
+        if (Interlocked.CompareExchange(ref _diskExtrasRefreshRunning, 1, 0) != 0)
+            return;
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var map = new Dictionary<string, (double? Temp, string Smart)>(StringComparer.Ordinal);
+                foreach (var source in sources)
+                {
+                    var block = ResolveBlockDeviceName(source);
+                    var temp = ReadBlockTemperature(block);
+                    var smart = ReadSmartStatus(source, block);
+                    map[source] = (temp, smart);
+                }
+
+                lock (_gate)
+                {
+                    _diskExtrasCache.Clear();
+                    foreach (var kv in map)
+                        _diskExtrasCache[kv.Key] = kv.Value;
+                    _diskExtrasUtc = DateTime.UtcNow;
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _diskExtrasRefreshRunning, 0);
+            }
+        });
     }
 
     private static string UnescapeMount(string mount) =>
@@ -640,7 +686,7 @@ public sealed class SystemMetricsService : IDisposable
                 if (!proc.Start())
                     continue;
 
-                if (!proc.WaitForExit(2500))
+                if (!proc.WaitForExit(1200))
                 {
                     try { proc.Kill(entireProcessTree: true); } catch { /* ignore */ }
                     continue;

@@ -17,8 +17,11 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // Cria a janela antes do ViewModel pesado para o compositor Linux exibir algo cedo.
+            var window = new MainWindow();
+            desktop.MainWindow = window;
             var vm = new MainViewModel();
-            desktop.MainWindow = new MainWindow { DataContext = vm };
+            window.DataContext = vm;
             desktop.Exit += (_, _) => vm.Dispose();
         }
 

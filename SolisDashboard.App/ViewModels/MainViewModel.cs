@@ -229,6 +229,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private async Task InitializeAsync()
     {
+        // Libera a UI thread imediatamente — senão a janela não abre no Linux
+        // enquanto SMART/discos/Solis rodam no trecho síncrono inicial.
+        await Task.Yield();
+
         try
         {
             ValidateOptions();
