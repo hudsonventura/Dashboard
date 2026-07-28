@@ -14,6 +14,17 @@ public sealed class SystemMetricsService : IDisposable
     private PerformanceCounter[]? _windowsCoreCounters;
     private bool _windowsPrimed;
     private bool _disposed;
+    private DateTime _diskExtrasUtc = DateTime.MinValue;
+    private readonly Dictionary<string, (double? Temp, string Smart)> _diskExtrasCache = new(StringComparer.Ordinal);
+    private static readonly TimeSpan DiskExtrasTtl = TimeSpan.FromSeconds(30);
+
+    private static readonly HashSet<string> IgnoredFsTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "tmpfs", "devtmpfs", "devfs", "proc", "sysfs", "cgroup", "cgroup2", "pstore", "bpf",
+        "debugfs", "tracefs", "securityfs", "fusectl", "configfs", "mqueue", "hugetlbfs",
+        "overlay", "aufs", "squashfs", "iso9660", "udf", "ramfs", "rpc_pipefs", "binfmt_misc",
+        "autofs", "efivarfs", "nsfs", "fuse.gvfsd-fuse", "fuse.portal", "tracefs"
+    };
 
     public SystemMetricsSnapshot Sample()
     {
@@ -41,6 +52,7 @@ public sealed class SystemMetricsService : IDisposable
         {
             Platform = "Linux",
             Cores = cores,
+            Disks = ReadLinuxDisks(),
             MemoryUsedBytes = memUsed,
             MemoryTotalBytes = memTotal,
             SwapUsedBytes = swapUsed,
@@ -366,6 +378,300 @@ public sealed class SystemMetricsService : IDisposable
         }
 
         return null;
+    }
+
+    private List<DiskMetrics> ReadLinuxDisks()
+    {
+        var mounts = new List<(string Source, string Mount, string FsType)>();
+        try
+        {
+            foreach (var line in File.ReadLines("/proc/mounts"))
+            {
+                var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 3)
+                    continue;
+
+                var source = parts[0];
+                var mount = UnescapeMount(parts[1]);
+                var fsType = parts[2];
+                if (IgnoredFsTypes.Contains(fsType))
+                    continue;
+                if (!source.StartsWith("/dev/", StringComparison.Ordinal))
+                    continue;
+                if (source.StartsWith("/dev/loop", StringComparison.Ordinal) ||
+                    source.StartsWith("/dev/ram", StringComparison.Ordinal) ||
+                    source.StartsWith("/dev/fd", StringComparison.Ordinal))
+                    continue;
+
+                mounts.Add((source, mount, fsType));
+            }
+        }
+        catch
+        {
+            return [];
+        }
+
+        // Prefer shorter/root mounts; dedupe by mount point.
+        mounts = mounts
+            .GroupBy(m => m.Mount, StringComparer.Ordinal)
+            .Select(g => g.First())
+            .OrderBy(m => m.Mount, StringComparer.Ordinal)
+            .ToList();
+
+        RefreshDiskExtrasIfNeeded(mounts.Select(m => m.Source).Distinct(StringComparer.Ordinal));
+
+        var disks = new List<DiskMetrics>();
+        foreach (var (source, mount, _) in mounts)
+        {
+            try
+            {
+                var info = new DriveInfo(mount);
+                if (!info.IsReady || info.TotalSize <= 0)
+                    continue;
+
+                var total = (double)info.TotalSize;
+                var used = total - info.AvailableFreeSpace;
+                var pct = Math.Clamp(100d * used / total, 0d, 100d);
+
+                _diskExtrasCache.TryGetValue(source, out var extras);
+                disks.Add(new DiskMetrics
+                {
+                    Device = source,
+                    MountPoint = mount,
+                    UsedBytes = used,
+                    TotalBytes = total,
+                    UsagePercent = pct,
+                    TemperatureCelsius = extras.Temp,
+                    SmartStatus = string.IsNullOrWhiteSpace(extras.Smart) ? "N/D" : extras.Smart
+                });
+            }
+            catch
+            {
+                // Mount pode sumir entre leitura e DriveInfo.
+            }
+        }
+
+        return disks;
+    }
+
+    private void RefreshDiskExtrasIfNeeded(IEnumerable<string> sources)
+    {
+        var now = DateTime.UtcNow;
+        if (now - _diskExtrasUtc < DiskExtrasTtl && _diskExtrasCache.Count > 0)
+            return;
+
+        _diskExtrasCache.Clear();
+        foreach (var source in sources)
+        {
+            var block = ResolveBlockDeviceName(source);
+            var temp = ReadBlockTemperature(block);
+            var smart = ReadSmartStatus(source, block);
+            _diskExtrasCache[source] = (temp, smart);
+        }
+
+        _diskExtrasUtc = now;
+    }
+
+    private static string UnescapeMount(string mount) =>
+        mount.Replace("\\040", " ", StringComparison.Ordinal)
+             .Replace("\\011", "\t", StringComparison.Ordinal)
+             .Replace("\\012", "\n", StringComparison.Ordinal)
+             .Replace("\\134", "\\", StringComparison.Ordinal);
+
+    /// <summary>Ex.: /dev/sda1 → sda ; /dev/nvme0n1p2 → nvme0n1</summary>
+    private static string? ResolveBlockDeviceName(string source)
+    {
+        var name = Path.GetFileName(source);
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        if (Directory.Exists(Path.Combine("/sys/block", name)))
+            return name;
+
+        var classDir = Path.Combine("/sys/class/block", name);
+        if (!Directory.Exists(classDir))
+            return name;
+
+        try
+        {
+            var classInfo = new DirectoryInfo(classDir);
+            var resolved = classInfo.ResolveLinkTarget(true) as DirectoryInfo ?? classInfo;
+            var parent = resolved.Parent;
+            if (parent is not null &&
+                parent.Parent is not null &&
+                parent.Parent.Name.Equals("block", StringComparison.OrdinalIgnoreCase))
+            {
+                return parent.Name;
+            }
+
+            // Fallback: strip partition suffix.
+            if (name.StartsWith("nvme", StringComparison.OrdinalIgnoreCase))
+            {
+                var p = name.LastIndexOf('p');
+                if (p > 0 && p < name.Length - 1 && name[(p + 1)..].All(char.IsDigit))
+                    return name[..p];
+            }
+            else
+            {
+                var i = name.Length - 1;
+                while (i > 0 && char.IsDigit(name[i]))
+                    i--;
+                if (i < name.Length - 1)
+                    return name[..(i + 1)];
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return name;
+    }
+
+    private static double? ReadBlockTemperature(string? blockName)
+    {
+        if (string.IsNullOrWhiteSpace(blockName))
+            return null;
+
+        try
+        {
+            // /sys/block/sda/device/hwmon/hwmonX/temp1_input  (drivetemp / nvme)
+            var deviceDir = Path.Combine("/sys/block", blockName, "device");
+            if (!Directory.Exists(deviceDir))
+                return null;
+
+            foreach (var hwmon in Directory.GetDirectories(deviceDir, "hwmon*", SearchOption.AllDirectories))
+            {
+                foreach (var input in Directory.GetFiles(hwmon, "temp*_input"))
+                {
+                    if (TryReadMilliCelsius(input, out var celsius))
+                        return celsius;
+                }
+            }
+
+            // Alguns NVMe expõem hwmon em /sys/class/nvme/nvme0/device → ../../hwmon
+            var nvmeMatch = System.Text.RegularExpressions.Regex.Match(blockName, @"^(nvme\d+)");
+            if (nvmeMatch.Success)
+            {
+                var nvmeDir = Path.Combine("/sys/class/nvme", nvmeMatch.Groups[1].Value);
+                if (Directory.Exists(nvmeDir))
+                {
+                    foreach (var input in Directory.GetFiles(nvmeDir, "temp*_input", SearchOption.AllDirectories))
+                    {
+                        if (TryReadMilliCelsius(input, out var celsius))
+                            return celsius;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return null;
+    }
+
+    private static string ReadSmartStatus(string source, string? blockName)
+    {
+        var fromSysfs = ReadNvmeCriticalWarning(blockName);
+        if (fromSysfs is not null)
+            return fromSysfs;
+
+        return ReadSmartctlHealth(source, blockName);
+    }
+
+    private static string? ReadNvmeCriticalWarning(string? blockName)
+    {
+        if (string.IsNullOrWhiteSpace(blockName) ||
+            !blockName.StartsWith("nvme", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        try
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(blockName, @"^(nvme\d+)");
+            if (!match.Success)
+                return null;
+
+            var warnPath = Path.Combine("/sys/class/nvme", match.Groups[1].Value, "device", "critical_warning");
+            if (!File.Exists(warnPath))
+                warnPath = Path.Combine("/sys/class/nvme", match.Groups[1].Value, "critical_warning");
+            if (!File.Exists(warnPath))
+                return null;
+
+            var raw = File.ReadAllText(warnPath).Trim();
+            if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var warn))
+                return null;
+
+            return warn == 0 ? "ok" : $"erro SMART (critical_warning={warn})";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string ReadSmartctlHealth(string source, string? blockName)
+    {
+        var targets = new List<string> { source };
+        if (!string.IsNullOrWhiteSpace(blockName))
+        {
+            var parent = "/dev/" + blockName;
+            if (!targets.Contains(parent, StringComparer.Ordinal))
+                targets.Insert(0, parent);
+        }
+
+        foreach (var target in targets)
+        {
+            try
+            {
+                using var proc = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "smartctl",
+                        Arguments = $"-H {target}",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                if (!proc.Start())
+                    continue;
+
+                if (!proc.WaitForExit(2500))
+                {
+                    try { proc.Kill(entireProcessTree: true); } catch { /* ignore */ }
+                    continue;
+                }
+
+                var output = proc.StandardOutput.ReadToEnd() + proc.StandardError.ReadToEnd();
+                if (output.Contains("PASSED", StringComparison.OrdinalIgnoreCase) ||
+                    (output.Contains("OK", StringComparison.OrdinalIgnoreCase) &&
+                     output.Contains("result", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return "ok";
+                }
+
+                if (output.Contains("FAILED", StringComparison.OrdinalIgnoreCase))
+                    return "FAILED";
+
+                // Exit 0 often means healthy even without PASSED line.
+                if (proc.ExitCode == 0 &&
+                    !output.Contains("Permission denied", StringComparison.OrdinalIgnoreCase) &&
+                    !output.Contains("Unable to", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "ok";
+                }
+            }
+            catch
+            {
+                // smartctl ausente ou sem permissão
+            }
+        }
+
+        return "N/D";
     }
 
     public void Dispose()

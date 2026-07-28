@@ -74,6 +74,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         ForecastDays = [];
         CpuCores = [];
+        Disks = [];
+        DisksVisible = OperatingSystem.IsLinux();
         CamerasVisible = _options.Cameras.Enabled;
         PrimaryCameraName = string.IsNullOrWhiteSpace(_options.Cameras.Primary.Name) ? "Câmera 1" : _options.Cameras.Primary.Name;
         SecondaryCameraName = string.IsNullOrWhiteSpace(_options.Cameras.Secondary.Name) ? "Câmera 2" : _options.Cameras.Secondary.Name;
@@ -150,6 +152,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public ObservableCollection<ForecastDayItem> ForecastDays { get; }
     public ObservableCollection<CpuCoreItem> CpuCores { get; }
+    public ObservableCollection<DiskItem> Disks { get; }
     public ISeries[] ChartSeries { get; }
     public Axis[] XAxes { get; }
     public Axis[] YAxes { get; }
@@ -216,6 +219,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _swapText = "-";
     [ObservableProperty] private double _swapPercent;
     [ObservableProperty] private string _cpuTempText = "N/D";
+    [ObservableProperty] private bool _disksVisible;
 
     partial void OnMemoryPercentChanged(double value)
     {
@@ -483,10 +487,37 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             CpuTempText = snap.CpuTemperatureCelsius is null
                 ? "N/D"
                 : $"{snap.CpuTemperatureCelsius.Value:0.0} °C";
+
+            if (DisksVisible)
+                SyncDisks(snap.Disks);
+            else if (Disks.Count > 0)
+                Disks.Clear();
         }
         catch (Exception ex)
         {
             SystemPlatform = $"Erro: {ex.Message}";
+        }
+    }
+
+    private void SyncDisks(IReadOnlyList<DiskMetrics> disks)
+    {
+        while (Disks.Count < disks.Count)
+            Disks.Add(new DiskItem());
+        while (Disks.Count > disks.Count)
+            Disks.RemoveAt(Disks.Count - 1);
+
+        for (var i = 0; i < disks.Count; i++)
+        {
+            var src = disks[i];
+            var item = Disks[i];
+            item.Device = src.Device;
+            item.MountPoint = src.MountPoint;
+            item.UsagePercent = src.UsagePercent;
+            item.UsageText = $"{FormatBytes(src.UsedBytes)} / {FormatBytes(src.TotalBytes)} ({src.UsagePercent:0}%)";
+            item.TemperatureText = src.TemperatureCelsius is null
+                ? "N/D"
+                : $"{src.TemperatureCelsius.Value:0} °C";
+            item.SmartStatus = string.IsNullOrWhiteSpace(src.SmartStatus) ? "N/D" : src.SmartStatus;
         }
     }
 

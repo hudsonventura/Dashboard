@@ -10,6 +10,7 @@ public static class UsageBarPalette
     private static readonly IBrush Orange = new SolidColorBrush(Color.Parse("#FFA726"));
     private static readonly IBrush Red = new SolidColorBrush(Color.Parse("#EF5350"));
     private static readonly IBrush CriticalRed = new SolidColorBrush(Color.Parse("#FF1744"));
+    public static readonly IBrush GreenOk = Green;
     public static readonly IBrush SwapRed = new SolidColorBrush(Color.Parse("#E53935"));
 
     public static IBrush ForPercent(double percent)
