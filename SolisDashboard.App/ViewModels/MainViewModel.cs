@@ -29,6 +29,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private readonly AppOptions _options;
     private readonly DispatcherTimer _refreshTimer;
+    private readonly DispatcherTimer _weatherTimer;
     private readonly DispatcherTimer _countdownTimer;
     private readonly DispatcherTimer _systemTimer;
     private readonly ObservableCollection<double> _generationValues = [];
@@ -36,9 +37,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly FfmpegRtspPlayer _primaryPlayer = new("Câmera principal");
     private readonly FfmpegRtspPlayer _secondaryPlayer = new("Câmera secundária");
     private SolisApiClient? _solis;
-    private OpenMeteoClient? _weather;
+    private IWeatherProvider? _weather;
     private string? _inverterSn;
     private DateTime _nextRefreshUtc = DateTime.UtcNow;
+    private DateTime _nextWeatherUtc = DateTime.UtcNow;
+    private bool _weatherBusy;
     private bool _disposed;
     private Bitmap? _primaryCameraFrameField;
     private Bitmap? _secondaryCameraFrameField;
@@ -110,7 +113,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         ];
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
-        _refreshTimer.Tick += async (_, _) => await RefreshAsync();
+        _refreshTimer.Tick += async (_, _) => await RefreshSolisAsync();
+
+        var weatherMinutes = Math.Clamp(_options.Weather.RefreshMinutes, 5, 60);
+        _weatherTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(weatherMinutes) };
+        _weatherTimer.Tick += async (_, _) => await RefreshWeatherAsync();
 
         _countdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _countdownTimer.Tick += (_, _) => UpdateCountdown();
@@ -165,6 +172,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _igbtTemp = "-";
     [ObservableProperty] private string _inverterTemp = "-";
 
+    [ObservableProperty] private string _weatherProviderLabel = "Weather";
     [ObservableProperty] private string _weatherTemp = "-";
     [ObservableProperty] private string _weatherTodayRange = "-";
     [ObservableProperty] private string _weatherFeelsLike = "-";
@@ -201,13 +209,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             ValidateOptions();
             _solis = new SolisApiClient(_options.Solis);
-            _weather = new OpenMeteoClient(_options.Weather);
+            _weather = CreateWeatherProvider(_options.Weather);
+            WeatherProviderLabel = $"Weather · {_weather.DisplayName}";
 
             RefreshSystemMetrics();
             _systemTimer.Start();
 
-            await RefreshAsync();
+            await RefreshSolisAsync();
+            await RefreshWeatherAsync();
             _refreshTimer.Start();
+            _weatherTimer.Start();
             _countdownTimer.Start();
 
             if (UseRtspCameras)
@@ -479,14 +490,19 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        if (_solis is null || _weather is null || IsBusy)
+        await RefreshSolisAsync();
+        await RefreshWeatherAsync();
+    }
+
+    private async Task RefreshSolisAsync()
+    {
+        if (_solis is null || IsBusy)
             return;
 
         try
         {
             IsBusy = true;
-            ErrorMessage = "";
-            StatusMessage = "Consultando SolisCloud e Open-Meteo...";
+            StatusMessage = "Consultando SolisCloud...";
 
             _inverterSn ??= await _solis.ResolveInverterSnAsync();
             InverterSnText = _inverterSn;
@@ -495,7 +511,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             var timeZone = (int)Math.Round(detail.TimeZone ?? _options.Solis.TimeZone);
             var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(timeZone));
             var dayPoints = await _solis.GetInverterDayAsync(_inverterSn, today, timeZone);
-            var forecast = await _weather.GetForecastAsync();
 
             ModelText = detail.ProductModel ?? detail.Model ?? _options.Solis.InverterModel;
             UpdatedText = detail.TimeStr ?? "-";
@@ -545,61 +560,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             Power6kFirstText = atOrAbove6k.Count == 0 ? "—" : atOrAbove6k[0].Time;
             Power6kLastText = atOrAbove6k.Count == 0 ? "—" : atOrAbove6k[^1].Time;
 
-            if (forecast.Current is { } current)
-            {
-                WeatherTime = current.Time ?? "-";
-                WeatherTemp = $"{current.Temperature2m:0.0} °C";
-                WeatherFeelsLike = $"{current.ApparentTemperature:0.0} °C";
-                WeatherCondition = WeatherCodes.Describe(current.WeatherCode);
-                WeatherIconKey = WeatherCodes.IconKey(current.WeatherCode);
-                WeatherHumidity = $"{current.RelativeHumidity2m} %";
-                WeatherWind = $"{current.WindSpeed10m:0.0} km/h";
-                WeatherPrecip = $"{current.Precipitation:0.0} mm";
-            }
-
-            ForecastDays.Clear();
-            WeatherTodayRange = "-";
-            if (forecast.Daily is { } daily)
-            {
-                var culture = new CultureInfo("pt-BR");
-                var count = Math.Min(5, daily.Time.Count);
-                for (var i = 0; i < count; i++)
-                {
-                    var code = i < daily.WeatherCode.Count ? daily.WeatherCode[i] : -1;
-                    var min = i < daily.Temperature2mMin.Count ? daily.Temperature2mMin[i] : 0;
-                    var max = i < daily.Temperature2mMax.Count ? daily.Temperature2mMax[i] : 0;
-                    var rain = i < daily.PrecipitationSum.Count ? daily.PrecipitationSum[i] : 0;
-                    var wind = i < daily.WindSpeed10mMax.Count ? daily.WindSpeed10mMax[i] : 0;
-                    var dayLabel = DateOnly.TryParse(daily.Time[i], out var d)
-                        ? d.ToString("ddd", culture).TrimEnd('.')
-                        : daily.Time[i];
-                    dayLabel = culture.TextInfo.ToTitleCase(dayLabel.ToLowerInvariant());
-
-                    var range = $"{max:0.#}°/{min:0.#}°";
-                    if (i == 0)
-                        WeatherTodayRange = $"{max:0.#}° / {min:0.#}°";
-
-                    ForecastDays.Add(new ForecastDayItem
-                    {
-                        DateLabel = dayLabel,
-                        Condition = WeatherCodes.Describe(code),
-                        IconKey = WeatherCodes.IconKey(code),
-                        TempRange = range,
-                        Rain = $"{rain:0.#} mm",
-                        Wind = $"{wind:0.#} km/h"
-                    });
-                }
-            }
-
-            _nextRefreshUtc = DateTime.UtcNow.AddMinutes(5);
-            StatusMessage = $"Atualizado às {DateTime.Now:HH:mm:ss}";
+            _nextRefreshUtc = DateTime.UtcNow.Add(_refreshTimer.Interval);
+            StatusMessage = $"Solis atualizado às {DateTime.Now:HH:mm:ss}";
             UpdateCountdown();
         }
         catch (Exception ex)
         {
-            ReportError("Atualização Solis/Weather", ex);
-            StatusMessage = "Erro na atualização";
-            _nextRefreshUtc = DateTime.UtcNow.AddMinutes(5);
+            ReportError("Atualização Solis", ex);
+            StatusMessage = "Erro na atualização Solis";
+            _nextRefreshUtc = DateTime.UtcNow.Add(_refreshTimer.Interval);
         }
         finally
         {
@@ -607,12 +576,95 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private async Task RefreshWeatherAsync()
+    {
+        if (_weather is null || _weatherBusy)
+            return;
+
+        try
+        {
+            _weatherBusy = true;
+            StatusMessage = $"Consultando {_weather.DisplayName}...";
+
+            var snapshot = await _weather.GetSnapshotAsync();
+            ApplyWeatherSnapshot(snapshot);
+
+            var weatherMinutes = Math.Clamp(_options.Weather.RefreshMinutes, 5, 60);
+            _nextWeatherUtc = DateTime.UtcNow.AddMinutes(weatherMinutes);
+            StatusMessage = $"Clima atualizado às {DateTime.Now:HH:mm:ss}";
+            UpdateCountdown();
+        }
+        catch (Exception ex)
+        {
+            ReportError("Atualização Weather", ex);
+            StatusMessage = "Erro na atualização do clima";
+            _nextWeatherUtc = DateTime.UtcNow.AddMinutes(Math.Clamp(_options.Weather.RefreshMinutes, 5, 60));
+        }
+        finally
+        {
+            _weatherBusy = false;
+        }
+    }
+
+    private void ApplyWeatherSnapshot(WeatherSnapshot snapshot)
+    {
+        WeatherProviderLabel = $"Weather · {snapshot.ProviderLabel}";
+        WeatherTime = snapshot.ObservedAt ?? "-";
+        WeatherTemp = $"{snapshot.TemperatureC:0.0} °C";
+        WeatherFeelsLike = $"{snapshot.FeelsLikeC:0.0} °C";
+        WeatherCondition = snapshot.Condition;
+        WeatherIconKey = snapshot.IconKey;
+        WeatherHumidity = $"{snapshot.HumidityPercent} %";
+        WeatherWind = $"{snapshot.WindKmh:0.0} km/h";
+        WeatherPrecip = $"{snapshot.PrecipitationMm:0.0} mm";
+
+        ForecastDays.Clear();
+        WeatherTodayRange = "-";
+        var culture = new CultureInfo("pt-BR");
+        for (var i = 0; i < snapshot.Days.Count; i++)
+        {
+            var day = snapshot.Days[i];
+            var dayLabel = day.Date.ToString("ddd", culture).TrimEnd('.');
+            dayLabel = culture.TextInfo.ToTitleCase(dayLabel.ToLowerInvariant());
+            var range = $"{day.TempMaxC:0.#}°/{day.TempMinC:0.#}°";
+            if (i == 0)
+                WeatherTodayRange = $"{day.TempMaxC:0.#}° / {day.TempMinC:0.#}°";
+
+            ForecastDays.Add(new ForecastDayItem
+            {
+                DateLabel = dayLabel,
+                Condition = day.Condition,
+                IconKey = day.IconKey,
+                TempRange = range,
+                Rain = $"{day.PrecipitationMm:0.#} mm",
+                Wind = $"{day.WindKmh:0.#} km/h"
+            });
+        }
+    }
+
+    private static IWeatherProvider CreateWeatherProvider(WeatherOptions weather)
+    {
+        var name = weather.Provider?.Trim() ?? "OpenMeteo";
+        if (name.Equals("OpenWeather", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("OpenWeatherMap", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("OneCall", StringComparison.OrdinalIgnoreCase))
+        {
+            return new OpenWeatherMapProvider(weather);
+        }
+
+        return new OpenMeteoWeatherProvider(weather);
+    }
+
     private void UpdateCountdown()
     {
         var remaining = _nextRefreshUtc - DateTime.UtcNow;
         if (remaining < TimeSpan.Zero)
             remaining = TimeSpan.Zero;
-        CountdownText = $"Próxima atualização em {remaining.Minutes:00}:{remaining.Seconds:00}";
+        var weatherRemaining = _nextWeatherUtc - DateTime.UtcNow;
+        if (weatherRemaining < TimeSpan.Zero)
+            weatherRemaining = TimeSpan.Zero;
+        CountdownText =
+            $"Solis {remaining.Minutes:00}:{remaining.Seconds:00} · Clima {weatherRemaining.Minutes:00}:{weatherRemaining.Seconds:00}";
 
         var now = DateTime.Now;
         ClockDateText = now.ToString("yyyy-MM-dd");
@@ -626,6 +678,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             string.IsNullOrWhiteSpace(_options.Solis.ApiUrl))
         {
             throw new InvalidOperationException("Configure KeyId, KeySecret e ApiUrl em appsettings.json.");
+        }
+
+        var provider = _options.Weather.Provider?.Trim() ?? "OpenMeteo";
+        if ((provider.Equals("OpenWeather", StringComparison.OrdinalIgnoreCase) ||
+             provider.Equals("OpenWeatherMap", StringComparison.OrdinalIgnoreCase) ||
+             provider.Equals("OneCall", StringComparison.OrdinalIgnoreCase)) &&
+            string.IsNullOrWhiteSpace(_options.Weather.OpenWeather.ApiKey))
+        {
+            throw new InvalidOperationException("Configure Weather:OpenWeather:ApiKey no appsettings.json.");
         }
     }
 
@@ -669,6 +730,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         _disposed = true;
         _refreshTimer.Stop();
+        _weatherTimer.Stop();
         _countdownTimer.Stop();
         _systemTimer.Stop();
         _systemMetrics.Dispose();

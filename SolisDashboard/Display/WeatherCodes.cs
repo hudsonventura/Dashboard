@@ -37,4 +37,33 @@ public static class WeatherCodes
         95 or 96 or 99 => "thunder",
         _ => "unknown"
     };
+
+    public static string DescribeOpenWeather(int id) => id switch
+    {
+        >= 200 and < 300 => "Tempestade",
+        >= 300 and < 400 => "Garoa",
+        >= 500 and < 600 => "Chuva",
+        >= 600 and < 700 => "Neve",
+        >= 700 and < 800 => "Neblina",
+        800 => "Céu limpo",
+        801 => "Poucas nuvens",
+        802 => "Parcialmente nublado",
+        803 or 804 => "Nublado",
+        _ => $"Código {id}"
+    };
+
+    public static string IconKeyFromOpenWeather(int id, string? icon) => id switch
+    {
+        >= 200 and < 300 => "thunder",
+        >= 300 and < 400 => "drizzle",
+        >= 500 and < 520 => "rain",
+        >= 520 and < 600 => "showers",
+        >= 600 and < 700 => "snow",
+        >= 700 and < 800 => "fog",
+        800 => "clear",
+        801 => "mainly-clear",
+        802 => "partly-cloudy",
+        803 or 804 => "overcast",
+        _ => "unknown"
+    };
 }

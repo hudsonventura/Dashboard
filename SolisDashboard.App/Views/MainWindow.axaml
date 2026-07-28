@@ -89,7 +89,7 @@
       <!-- Weather compacto -->
       <Border Grid.Row="1" Classes="card" Padding="10">
         <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Classes="section" Text="Weather · Open-Meteo" />
+          <TextBlock DockPanel.Dock="Top" Classes="section" Text="{Binding WeatherProviderLabel}" />
 
           <StackPanel Spacing="8">
             <StackPanel Orientation="Horizontal" Spacing="10">
