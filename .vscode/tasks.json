@@ -8,6 +8,8 @@
       "args": [
         "build",
         "${workspaceFolder}/SolisDashboard.App/SolisDashboard.App.csproj",
+        "-c",
+        "Debug",
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary"
       ],
@@ -18,6 +20,12 @@
         "kind": "build",
         "isDefault": true
       },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "dotrush: Build App",
+      "type": "dotrush.task",
+      "project": "${workspaceFolder}/SolisDashboard.App/SolisDashboard.App.csproj",
       "problemMatcher": "$msCompile"
     },
     {

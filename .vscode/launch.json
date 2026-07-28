@@ -5,27 +5,27 @@
       "name": "Solis Dashboard (DotRush)",
       "type": "coreclr",
       "request": "launch",
+      "preLaunchTask": "build-app",
+      "program": "${workspaceFolder}/SolisDashboard.App/bin/Debug/net10.0/SolisDashboard.App.dll",
+      "cwd": "${workspaceFolder}/SolisDashboard.App/bin/Debug/net10.0",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Solis Dashboard (DotRush active target)",
+      "type": "coreclr",
+      "request": "launch",
       "program": "${command:dotrush.activeTargetPath}",
-      "cwd": "${workspaceFolder}/SolisDashboard.App",
+      "cwd": "${command:dotrush.activeProjectDirectory}",
       "preLaunchTask": "dotrush: Build",
       "console": "internalConsole",
       "stopAtEntry": false
     },
     {
-      "name": "Solis Dashboard (attach DotRush)",
+      "name": "Solis Dashboard (attach)",
       "type": "coreclr",
       "request": "attach",
       "processId": "${command:dotrush.pickProcess}"
-    },
-    {
-      "name": "Solis Dashboard (dotnet path)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build-app",
-      "program": "${workspaceFolder}/SolisDashboard.App/bin/Debug/net10.0/SolisDashboard.App.dll",
-      "cwd": "${workspaceFolder}/SolisDashboard.App",
-      "console": "internalConsole",
-      "stopAtEntry": false
     }
   ]
 }
