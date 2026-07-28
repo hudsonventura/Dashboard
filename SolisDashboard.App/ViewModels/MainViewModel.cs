@@ -1,20 +1,20 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.IO;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LibVLCSharp.Shared;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using Microsoft.Extensions.Configuration;
 using SkiaSharp;
+using SolisDashboard.App.Cameras;
 using SolisDashboard.App.Diagnostics;
 using SolisDashboard.App.Display;
 using SolisDashboard.App.Models;
@@ -43,8 +43,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly DispatcherTimer _systemTimer;
     private readonly ObservableCollection<ObservablePoint> _generationValues = [];
     private readonly SystemMetricsService _systemMetrics = new();
-    private readonly FfmpegRtspPlayer _primaryPlayer = new("Câmera principal");
-    private readonly FfmpegRtspPlayer _secondaryPlayer = new("Câmera secundária");
+    private readonly LibVlcCameraHost _cameras = new();
     private SolisApiClient? _solis;
     private IWeatherProvider? _weather;
     private string? _inverterSn;
@@ -52,16 +51,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private DateTime _nextWeatherUtc = DateTime.UtcNow;
     private bool _weatherBusy;
     private bool _disposed;
-    private Bitmap? _primaryCameraFrameField;
-    private Bitmap? _secondaryCameraFrameField;
-    private byte[]? _pendingPrimaryJpeg;
-    private byte[]? _pendingSecondaryJpeg;
-    private int _primaryUiScheduled;
-    private int _secondaryUiScheduled;
-    private long _nextPrimaryFrameTicks;
-    private long _nextSecondaryFrameTicks;
-    /// <summary>Intervalo mínimo entre decodes na UI (Linux Skia: Bitmap RGBA ~2–4 MB/frame).</summary>
-    private static readonly long MinFrameIntervalTicks = TimeSpan.FromMilliseconds(200).Ticks;
     private string? _lastCameraErrorKey;
     private DateTime _lastCameraErrorReportedUtc = DateTime.MinValue;
 
@@ -145,10 +134,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         UpdateCountdown();
 
-        _primaryPlayer.FrameReceived += jpeg => OnFrame(isPrimary: true, jpeg);
-        _secondaryPlayer.FrameReceived += jpeg => OnFrame(isPrimary: false, jpeg);
-        _primaryPlayer.ErrorOccurred += OnCameraPlayerError;
-        _secondaryPlayer.ErrorOccurred += OnCameraPlayerError;
+        _cameras.ErrorOccurred += OnCameraPlayerError;
 
         LogFilePath = AppLog.LogFilePath;
         _ = InitializeAsync();
@@ -211,8 +197,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _secondaryCameraName = "Câmera 2";
     [ObservableProperty] private double _primaryCameraHeight = 360;
     [ObservableProperty] private double _secondaryCameraHeight = 180;
-    [ObservableProperty] private Bitmap? _primaryCameraFrame;
-    [ObservableProperty] private Bitmap? _secondaryCameraFrame;
+    [ObservableProperty] private MediaPlayer? _primaryMediaPlayer;
+    [ObservableProperty] private MediaPlayer? _secondaryMediaPlayer;
     [ObservableProperty] private string _cameraStatus = "";
 
     [ObservableProperty] private string _systemPlatform = "-";
@@ -272,166 +258,40 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            var ffmpeg = _options.Cameras.FfmpegPath;
-            var fps = _options.Cameras.FrameRate;
-            var maxWidth = _options.Cameras.MaxWidth;
+            // LibVLC precisa da UI thread para o VideoView anexar o MediaPlayer.
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    _cameras.Start(
+                        UseRtspCameras ? _options.Cameras.Primary.RtspUrl : null,
+                        UseRtspCameras ? _options.Cameras.Secondary.RtspUrl : null);
 
-            if (!string.IsNullOrWhiteSpace(_options.Cameras.Primary.RtspUrl))
-                _primaryPlayer.Start(_options.Cameras.Primary.RtspUrl, ffmpeg, fps, maxWidth);
-
-            if (!string.IsNullOrWhiteSpace(_options.Cameras.Secondary.RtspUrl))
-                _secondaryPlayer.Start(_options.Cameras.Secondary.RtspUrl, ffmpeg, fps, maxWidth);
-
-            CameraStatus = "";
+                    PrimaryMediaPlayer = _cameras.PrimaryPlayer;
+                    SecondaryMediaPlayer = _cameras.SecondaryPlayer;
+                    CameraStatus = "";
+                }
+                catch (Exception ex)
+                {
+                    UseRtspCameras = false;
+                    PrimaryMediaPlayer = null;
+                    SecondaryMediaPlayer = null;
+                    ReportError(
+                        "RTSP/LibVLC",
+                        $"{ex}{Environment.NewLine}{Environment.NewLine}" +
+                        "Linux (Xubuntu 24.04): o VLC do apt não tem live555/RTSP." + Environment.NewLine +
+                        "Use snap oficial e aponte as libs:" + Environment.NewLine +
+                        "  sudo snap install vlc" + Environment.NewLine +
+                        "  export LD_LIBRARY_PATH=/snap/vlc/current/usr/lib" + Environment.NewLine +
+                        "  vlc --list | grep -i live555" + Environment.NewLine +
+                        "Windows: o NuGet VideoLAN.LibVLC.Windows já embute o runtime.");
+                }
+            });
         }
         catch (Exception ex)
         {
             UseRtspCameras = false;
-            ReportError(
-                "RTSP/FFmpeg",
-                $"{ex}{Environment.NewLine}{Environment.NewLine}" +
-                "Instale o FFmpeg e garanta que está no PATH:" + Environment.NewLine +
-                "  sudo apt install -y ffmpeg" + Environment.NewLine +
-                "  ffmpeg -version" + Environment.NewLine +
-                "Ou defina Cameras.FfmpegPath no appsettings.json.");
-        }
-    }
-
-    private void OnFrame(bool isPrimary, byte[] jpeg)
-    {
-        if (isPrimary)
-        {
-            Interlocked.Exchange(ref _pendingPrimaryJpeg, jpeg);
-            SchedulePrimaryUi();
-        }
-        else
-        {
-            Interlocked.Exchange(ref _pendingSecondaryJpeg, jpeg);
-            ScheduleSecondaryUi();
-        }
-    }
-
-    private void SchedulePrimaryUi()
-    {
-        if (Interlocked.CompareExchange(ref _primaryUiScheduled, 1, 0) != 0)
-            return;
-
-        Dispatcher.UIThread.Post(ProcessPrimaryFrame, DispatcherPriority.Background);
-    }
-
-    private void ScheduleSecondaryUi()
-    {
-        if (Interlocked.CompareExchange(ref _secondaryUiScheduled, 1, 0) != 0)
-            return;
-
-        Dispatcher.UIThread.Post(ProcessSecondaryFrame, DispatcherPriority.Background);
-    }
-
-    private void ProcessPrimaryFrame()
-    {
-        try
-        {
-            var now = DateTime.UtcNow.Ticks;
-            var nextAllowed = Interlocked.Read(ref _nextPrimaryFrameTicks);
-            if (now < nextAllowed)
-            {
-                var delay = TimeSpan.FromTicks(nextAllowed - now);
-                DispatcherTimer.RunOnce(() =>
-                {
-                    Interlocked.Exchange(ref _primaryUiScheduled, 0);
-                    if (_pendingPrimaryJpeg is not null)
-                        SchedulePrimaryUi();
-                }, delay);
-                return; // mantém _primaryUiScheduled=1 até o timer
-            }
-
-            var data = Interlocked.Exchange(ref _pendingPrimaryJpeg, null);
-            if (data is not null)
-            {
-                ApplyFrame(isPrimary: true, data);
-                Interlocked.Exchange(ref _nextPrimaryFrameTicks, DateTime.UtcNow.Ticks + MinFrameIntervalTicks);
-            }
-
-            Interlocked.Exchange(ref _primaryUiScheduled, 0);
-            if (_pendingPrimaryJpeg is not null)
-                SchedulePrimaryUi();
-        }
-        catch
-        {
-            Interlocked.Exchange(ref _primaryUiScheduled, 0);
-            throw;
-        }
-    }
-
-    private void ProcessSecondaryFrame()
-    {
-        try
-        {
-            var now = DateTime.UtcNow.Ticks;
-            var nextAllowed = Interlocked.Read(ref _nextSecondaryFrameTicks);
-            if (now < nextAllowed)
-            {
-                var delay = TimeSpan.FromTicks(nextAllowed - now);
-                DispatcherTimer.RunOnce(() =>
-                {
-                    Interlocked.Exchange(ref _secondaryUiScheduled, 0);
-                    if (_pendingSecondaryJpeg is not null)
-                        ScheduleSecondaryUi();
-                }, delay);
-                return;
-            }
-
-            var data = Interlocked.Exchange(ref _pendingSecondaryJpeg, null);
-            if (data is not null)
-            {
-                ApplyFrame(isPrimary: false, data);
-                Interlocked.Exchange(ref _nextSecondaryFrameTicks, DateTime.UtcNow.Ticks + MinFrameIntervalTicks);
-            }
-
-            Interlocked.Exchange(ref _secondaryUiScheduled, 0);
-            if (_pendingSecondaryJpeg is not null)
-                ScheduleSecondaryUi();
-        }
-        catch
-        {
-            Interlocked.Exchange(ref _secondaryUiScheduled, 0);
-            throw;
-        }
-    }
-
-    private void ApplyFrame(bool isPrimary, byte[] jpeg)
-    {
-        if (_disposed || jpeg.Length == 0)
-            return;
-
-        try
-        {
-            using var ms = new MemoryStream(jpeg, writable: false);
-            var next = new Bitmap(ms);
-            if (isPrimary)
-            {
-                var prev = _primaryCameraFrameField;
-                _primaryCameraFrameField = next;
-                // Null antes de trocar ajuda o Skia/Avalonia no Linux a soltar a textura antiga.
-                PrimaryCameraFrame = null;
-                PrimaryCameraFrame = next;
-                prev?.Dispose();
-            }
-            else
-            {
-                var prev = _secondaryCameraFrameField;
-                _secondaryCameraFrameField = next;
-                SecondaryCameraFrame = null;
-                SecondaryCameraFrame = next;
-                prev?.Dispose();
-            }
-
-            if (!string.IsNullOrEmpty(CameraStatus))
-                CameraStatus = "";
-        }
-        catch (Exception ex)
-        {
-            ReportCameraIssue($"Frame inválido: {ex.Message}");
+            ReportError("RTSP/LibVLC", ex);
         }
     }
 
@@ -448,7 +308,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         _lastCameraErrorKey = key;
         _lastCameraErrorReportedUtc = DateTime.UtcNow;
-        ReportError("RTSP/FFmpeg", message);
+        ReportError("RTSP/LibVLC", message);
     }
 
     private void ReportError(string category, Exception ex)
@@ -894,13 +754,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _countdownTimer.Stop();
         _systemTimer.Stop();
         _systemMetrics.Dispose();
-
-        _primaryPlayer.Dispose();
-        _secondaryPlayer.Dispose();
+        _cameras.Dispose();
+        PrimaryMediaPlayer = null;
+        SecondaryMediaPlayer = null;
 
         _solis?.Dispose();
         _weather?.Dispose();
-        _primaryCameraFrameField?.Dispose();
-        _secondaryCameraFrameField?.Dispose();
     }
 }

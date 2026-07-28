@@ -5,6 +5,7 @@
         xmlns:conv="using:SolisDashboard.App.Converters"
         xmlns:display="using:SolisDashboard.App.Display"
         xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+        xmlns:vlc="using:LibVLCSharp.Avalonia"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
@@ -84,12 +85,12 @@
           <Border Height="{Binding SecondaryCameraHeight}"
                   Background="#0D1117" CornerRadius="6" ClipToBounds="True">
             <Panel>
-              <Image Source="{Binding SecondaryCameraFrame}"
-                     Stretch="Uniform"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center" />
+              <vlc:VideoView MediaPlayer="{Binding SecondaryMediaPlayer}"
+                             HorizontalAlignment="Stretch"
+                             VerticalAlignment="Stretch"
+                             IsVisible="{Binding SecondaryMediaPlayer, Converter={x:Static ObjectConverters.IsNotNull}}" />
               <TextBlock Text="Sem vídeo"
-                         IsVisible="{Binding SecondaryCameraFrame, Converter={x:Static ObjectConverters.IsNull}}"
+                         IsVisible="{Binding SecondaryMediaPlayer, Converter={x:Static ObjectConverters.IsNull}}"
                          HorizontalAlignment="Center" VerticalAlignment="Center"
                          Foreground="{DynamicResource MutedText}" />
             </Panel>
@@ -279,12 +280,12 @@
           <Border Height="{Binding PrimaryCameraHeight}"
                   Background="#0D1117" CornerRadius="6" ClipToBounds="True">
             <Panel>
-              <Image Source="{Binding PrimaryCameraFrame}"
-                     Stretch="Uniform"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center" />
+              <vlc:VideoView MediaPlayer="{Binding PrimaryMediaPlayer}"
+                             HorizontalAlignment="Stretch"
+                             VerticalAlignment="Stretch"
+                             IsVisible="{Binding PrimaryMediaPlayer, Converter={x:Static ObjectConverters.IsNotNull}}" />
               <TextBlock Text="Sem vídeo"
-                         IsVisible="{Binding PrimaryCameraFrame, Converter={x:Static ObjectConverters.IsNull}}"
+                         IsVisible="{Binding PrimaryMediaPlayer, Converter={x:Static ObjectConverters.IsNull}}"
                          HorizontalAlignment="Center" VerticalAlignment="Center"
                          Foreground="{DynamicResource MutedText}" />
             </Panel>

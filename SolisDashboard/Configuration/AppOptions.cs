@@ -38,16 +38,10 @@ public sealed class OpenWeatherOptions
     public string Lang { get; set; } = "pt_br";
 }
 
-/// <summary>Câmeras via RTSP usando FFmpeg (pipe MJPEG).</summary>
+/// <summary>Câmeras RTSP via LibVLC (VideoView).</summary>
 public sealed class CamerasOptions
 {
     public bool Enabled { get; set; } = true;
-    /// <summary>Executável FFmpeg (PATH ou caminho absoluto). Padrão: ffmpeg</summary>
-    public string FfmpegPath { get; set; } = "ffmpeg";
-    /// <summary>FPS alvo por câmera (1–30).</summary>
-    public double FrameRate { get; set; } = 8;
-    /// <summary>Largura máxima do frame decodificado.</summary>
-    public int MaxWidth { get; set; } = 960;
     public CameraOptions Primary { get; set; } = new();
     public CameraOptions Secondary { get; set; } = new();
 }
