@@ -6,6 +6,7 @@
         xmlns:display="using:SolisDashboard.App.Display"
         xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:vlc="using:LibVLCSharp.Avalonia"
+        xmlns:vlcs="using:LibVLCSharp.Shared"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
@@ -84,11 +85,19 @@
           </ScrollViewer>
           <Border Height="{Binding SecondaryCameraHeight}"
                   Background="#0D1117" CornerRadius="6" ClipToBounds="True">
+            <!-- VideoView só é criado quando há MediaPlayer (evita leak nativo no Linux). -->
             <Panel>
-              <vlc:VideoView MediaPlayer="{Binding SecondaryMediaPlayer}"
-                             HorizontalAlignment="Stretch"
-                             VerticalAlignment="Stretch"
-                             IsVisible="{Binding SecondaryMediaPlayer, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <ContentControl Content="{Binding SecondaryMediaPlayer}"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch">
+                <ContentControl.ContentTemplate>
+                  <DataTemplate x:DataType="vlcs:MediaPlayer">
+                    <vlc:VideoView MediaPlayer="{Binding}"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch" />
+                  </DataTemplate>
+                </ContentControl.ContentTemplate>
+              </ContentControl>
               <TextBlock Text="Sem vídeo"
                          IsVisible="{Binding SecondaryMediaPlayer, Converter={x:Static ObjectConverters.IsNull}}"
                          HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -280,10 +289,17 @@
           <Border Height="{Binding PrimaryCameraHeight}"
                   Background="#0D1117" CornerRadius="6" ClipToBounds="True">
             <Panel>
-              <vlc:VideoView MediaPlayer="{Binding PrimaryMediaPlayer}"
-                             HorizontalAlignment="Stretch"
-                             VerticalAlignment="Stretch"
-                             IsVisible="{Binding PrimaryMediaPlayer, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <ContentControl Content="{Binding PrimaryMediaPlayer}"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch">
+                <ContentControl.ContentTemplate>
+                  <DataTemplate x:DataType="vlcs:MediaPlayer">
+                    <vlc:VideoView MediaPlayer="{Binding}"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch" />
+                  </DataTemplate>
+                </ContentControl.ContentTemplate>
+              </ContentControl>
               <TextBlock Text="Sem vídeo"
                          IsVisible="{Binding PrimaryMediaPlayer, Converter={x:Static ObjectConverters.IsNull}}"
                          HorizontalAlignment="Center" VerticalAlignment="Center"

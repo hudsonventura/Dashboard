@@ -42,6 +42,11 @@ public sealed class OpenWeatherOptions
 public sealed class CamerasOptions
 {
     public bool Enabled { get; set; } = true;
+    /// <summary>
+    /// Linux: pasta que contém libvlc.so (ex. /snap/vlc/current/usr/lib/x86_64-linux-gnu).
+    /// Não use /snap/vlc/current/usr/lib genérico com LD_LIBRARY_PATH — quebra o sistema.
+    /// </summary>
+    public string LibVlcPath { get; set; } = "";
     public CameraOptions Primary { get; set; } = new();
     public CameraOptions Secondary { get; set; } = new();
 }

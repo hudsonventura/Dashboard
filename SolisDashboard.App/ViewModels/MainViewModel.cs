@@ -258,39 +258,50 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            // LibVLC precisa da UI thread para o VideoView anexar o MediaPlayer.
             Dispatcher.UIThread.Post(() =>
             {
                 try
                 {
+                    // Garante que nenhum VideoView exista até o LibVLC subir.
+                    PrimaryMediaPlayer = null;
+                    SecondaryMediaPlayer = null;
+
                     _cameras.Start(
                         UseRtspCameras ? _options.Cameras.Primary.RtspUrl : null,
-                        UseRtspCameras ? _options.Cameras.Secondary.RtspUrl : null);
+                        UseRtspCameras ? _options.Cameras.Secondary.RtspUrl : null,
+                        _options.Cameras.LibVlcPath);
 
                     PrimaryMediaPlayer = _cameras.PrimaryPlayer;
                     SecondaryMediaPlayer = _cameras.SecondaryPlayer;
-                    CameraStatus = "";
+                    CameraStatus = string.IsNullOrWhiteSpace(_cameras.ResolvedLibVlcDirectory)
+                        ? ""
+                        : $"LibVLC: {_cameras.ResolvedLibVlcDirectory}";
                 }
                 catch (Exception ex)
                 {
                     UseRtspCameras = false;
                     PrimaryMediaPlayer = null;
                     SecondaryMediaPlayer = null;
+                    _cameras.Stop();
                     ReportError(
                         "RTSP/LibVLC",
                         $"{ex}{Environment.NewLine}{Environment.NewLine}" +
-                        "Linux (Xubuntu 24.04): o VLC do apt não tem live555/RTSP." + Environment.NewLine +
-                        "Use snap oficial e aponte as libs:" + Environment.NewLine +
-                        "  sudo snap install vlc" + Environment.NewLine +
-                        "  export LD_LIBRARY_PATH=/snap/vlc/current/usr/lib" + Environment.NewLine +
-                        "  vlc --list | grep -i live555" + Environment.NewLine +
-                        "Windows: o NuGet VideoLAN.LibVLC.Windows já embute o runtime.");
+                        "NÃO use: export LD_LIBRARY_PATH=/snap/vlc/current/usr/lib" + Environment.NewLine +
+                        "(isso quebra libidn e outras libs)." + Environment.NewLine + Environment.NewLine +
+                        "No Linux, ache o diretório correto:" + Environment.NewLine +
+                        "  find /snap/vlc/current -name 'libvlc.so*' 2>/dev/null" + Environment.NewLine +
+                        "E no appsettings.json:" + Environment.NewLine +
+                        "  \"Cameras\": { \"LibVlcPath\": \"/snap/vlc/current/usr/lib/x86_64-linux-gnu\" }" + Environment.NewLine +
+                        "Ou: export LIBVLC_PATH=/snap/vlc/current/usr/lib/x86_64-linux-gnu" + Environment.NewLine +
+                        "Teste: ls \"$LIBVLC_PATH\"/libvlc.so*");
                 }
             });
         }
         catch (Exception ex)
         {
             UseRtspCameras = false;
+            PrimaryMediaPlayer = null;
+            SecondaryMediaPlayer = null;
             ReportError("RTSP/LibVLC", ex);
         }
     }
