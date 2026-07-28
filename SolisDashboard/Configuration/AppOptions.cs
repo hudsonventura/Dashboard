@@ -57,6 +57,6 @@ public sealed class CameraOptions
     public string Name { get; set; } = "Câmera";
     /// <summary>URL RTSP completa da câmera.</summary>
     public string RtspUrl { get; set; } = "";
-    /// <summary>Altura da visualização em pixels (referência de layout).</summary>
+    /// <summary>Altura da área de vídeo em pixels (layout Auto; weather/Solis ocupam o restante).</summary>
     public double Height { get; set; } = 280;
 }

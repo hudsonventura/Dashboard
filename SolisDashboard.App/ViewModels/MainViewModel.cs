@@ -4,16 +4,19 @@ using System.IO;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiveChartsCore;
+using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using Microsoft.Extensions.Configuration;
 using SkiaSharp;
 using SolisDashboard.App.Diagnostics;
+using SolisDashboard.App.Display;
 using SolisDashboard.App.Models;
 using SolisDashboard.Configuration;
 using SolisDashboard.Display;
@@ -26,13 +29,19 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 {
     private static readonly SKColor AccentColor = SKColor.Parse("#F5B942");
     private static readonly SKColor AxisLineColor = SKColor.Parse("#2A3442");
+    /// <summary>Janela fixa do gráfico em horário local UTC-4.</summary>
+    private const double ChartStartHour = 6;
+    private const double ChartEndHour = 18;
+    /// <summary>Atualização Solis só entre 10:00 e 22:00 UTC.</summary>
+    private static readonly TimeSpan SolisWindowStartUtc = TimeSpan.FromHours(10);
+    private static readonly TimeSpan SolisWindowEndUtc = TimeSpan.FromHours(22);
 
     private readonly AppOptions _options;
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _weatherTimer;
     private readonly DispatcherTimer _countdownTimer;
     private readonly DispatcherTimer _systemTimer;
-    private readonly ObservableCollection<double> _generationValues = [];
+    private readonly ObservableCollection<ObservablePoint> _generationValues = [];
     private readonly SystemMetricsService _systemMetrics = new();
     private readonly FfmpegRtspPlayer _primaryPlayer = new("Câmera principal");
     private readonly FfmpegRtspPlayer _secondaryPlayer = new("Câmera secundária");
@@ -77,15 +86,15 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         ChartSeries =
         [
-            new LineSeries<double>
+            new LineSeries<ObservablePoint>
             {
                 Name = "Potência (W)",
                 Values = _generationValues,
                 Fill = new SolidColorPaint(AccentColor.WithAlpha(70)),
                 Stroke = new SolidColorPaint(AccentColor, 3),
-                GeometrySize = 4,
-                GeometryStroke = new SolidColorPaint(AccentColor, 2),
-                GeometryFill = new SolidColorPaint(AccentColor),
+                GeometrySize = 0,
+                GeometryStroke = null,
+                GeometryFill = null,
                 LineSmoothness = 0.35
             }
         ];
@@ -94,6 +103,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         [
             new Axis
             {
+                MinLimit = ChartStartHour,
+                MaxLimit = ChartEndHour,
+                MinStep = 1,
                 LabelsPaint = null,
                 NamePaint = null,
                 SeparatorsPaint = new SolidColorPaint(AxisLineColor),
@@ -199,9 +211,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _systemPlatform = "-";
     [ObservableProperty] private string _memoryText = "-";
     [ObservableProperty] private double _memoryPercent;
+    [ObservableProperty] private IBrush _memoryBarBrush = UsageBarPalette.ForPercent(0);
+    [ObservableProperty] private bool _memoryIsCritical;
     [ObservableProperty] private string _swapText = "-";
     [ObservableProperty] private double _swapPercent;
     [ObservableProperty] private string _cpuTempText = "N/D";
+
+    partial void OnMemoryPercentChanged(double value)
+    {
+        MemoryBarBrush = UsageBarPalette.ForPercent(value);
+        MemoryIsCritical = UsageBarPalette.IsCritical(value);
+    }
 
     private async Task InitializeAsync()
     {
@@ -499,6 +519,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (_solis is null || IsBusy)
             return;
 
+        if (!IsSolisRefreshWindow(DateTime.UtcNow))
+        {
+            _nextRefreshUtc = NextSolisRefreshUtc(DateTime.UtcNow);
+            StatusMessage = "Solis em pausa noturna (10–22 UTC)";
+            UpdateCountdown();
+            return;
+        }
+
         try
         {
             IsBusy = true;
@@ -543,24 +571,33 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     Time = ExtractHour(p.TimeStr),
                     PowerW = Math.Max(0, p.Pac!.Value)
                 })
+                .Where(p => TryParseHourDecimal(p.Time, out var hour) &&
+                            hour >= ChartStartHour && hour <= ChartEndHour)
                 .ToList();
 
             _generationValues.Clear();
             foreach (var point in points)
-                _generationValues.Add(point.PowerW);
+            {
+                if (!TryParseHourDecimal(point.Time, out var hour))
+                    continue;
+                _generationValues.Add(new ObservablePoint(hour, point.PowerW));
+            }
 
+            // Mantém o eixo sempre 06h–18h (UTC-4 / horário local do gráfico).
+            XAxes[0].MinLimit = ChartStartHour;
+            XAxes[0].MaxLimit = ChartEndHour;
             XAxes[0].Labels = null;
 
             ChartPeakText = points.Count == 0
                 ? "Sem dados de geração para hoje"
-                : $"Pico {points.Max(p => p.PowerW):0.#} W · {points.Count} pontos";
+                : $"Pico {points.Max(p => p.PowerW):0.#} W · {points.Count} pts · 06–18h";
 
             const double thresholdW = 6000;
             var atOrAbove6k = points.Where(p => p.PowerW >= thresholdW).ToList();
             Power6kFirstText = atOrAbove6k.Count == 0 ? "—" : atOrAbove6k[0].Time;
             Power6kLastText = atOrAbove6k.Count == 0 ? "—" : atOrAbove6k[^1].Time;
 
-            _nextRefreshUtc = DateTime.UtcNow.Add(_refreshTimer.Interval);
+            _nextRefreshUtc = NextSolisRefreshUtc(DateTime.UtcNow);
             StatusMessage = $"Solis atualizado às {DateTime.Now:HH:mm:ss}";
             UpdateCountdown();
         }
@@ -568,7 +605,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             ReportError("Atualização Solis", ex);
             StatusMessage = "Erro na atualização Solis";
-            _nextRefreshUtc = DateTime.UtcNow.Add(_refreshTimer.Interval);
+            _nextRefreshUtc = NextSolisRefreshUtc(DateTime.UtcNow);
         }
         finally
         {
@@ -610,13 +647,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         WeatherProviderLabel = $"Weather · {snapshot.ProviderLabel}";
         WeatherTime = snapshot.ObservedAt ?? "-";
-        WeatherTemp = $"{snapshot.TemperatureC:0.0} °C";
-        WeatherFeelsLike = $"{snapshot.FeelsLikeC:0.0} °C";
+        WeatherTemp = $"{Math.Round(snapshot.TemperatureC):0} °C";
+        WeatherFeelsLike = $"{Math.Round(snapshot.FeelsLikeC):0} °C";
         WeatherCondition = snapshot.Condition;
         WeatherIconKey = snapshot.IconKey;
         WeatherHumidity = $"{snapshot.HumidityPercent} %";
-        WeatherWind = $"{snapshot.WindKmh:0.0} km/h";
-        WeatherPrecip = $"{snapshot.PrecipitationMm:0.0} mm";
+        WeatherWind = $"{Math.Round(snapshot.WindKmh):0} km/h";
+        WeatherPrecip = $"{Math.Round(snapshot.PrecipitationMm):0} mm";
 
         ForecastDays.Clear();
         WeatherTodayRange = "-";
@@ -624,20 +661,25 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         for (var i = 0; i < snapshot.Days.Count; i++)
         {
             var day = snapshot.Days[i];
+            var max = Math.Round(day.TempMaxC);
+            var min = Math.Round(day.TempMinC);
+            if (i == 0)
+            {
+                WeatherTodayRange = $"{max:0}° / {min:0}°";
+                continue; // previsão: pula o dia de hoje
+            }
+
             var dayLabel = day.Date.ToString("ddd", culture).TrimEnd('.');
             dayLabel = culture.TextInfo.ToTitleCase(dayLabel.ToLowerInvariant());
-            var range = $"{day.TempMaxC:0.#}°/{day.TempMinC:0.#}°";
-            if (i == 0)
-                WeatherTodayRange = $"{day.TempMaxC:0.#}° / {day.TempMinC:0.#}°";
 
             ForecastDays.Add(new ForecastDayItem
             {
                 DateLabel = dayLabel,
                 Condition = day.Condition,
                 IconKey = day.IconKey,
-                TempRange = range,
-                Rain = $"{day.PrecipitationMm:0.#} mm",
-                Wind = $"{day.WindKmh:0.#} km/h"
+                TempRange = $"{max:0}°/{min:0}°",
+                Rain = $"{Math.Round(day.PrecipitationMm):0} mm",
+                Wind = $"{Math.Round(day.WindKmh):0} km/h"
             });
         }
     }
@@ -664,12 +706,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (weatherRemaining < TimeSpan.Zero)
             weatherRemaining = TimeSpan.Zero;
         CountdownText =
-            $"Solis {remaining.Minutes:00}:{remaining.Seconds:00} · Clima {weatherRemaining.Minutes:00}:{weatherRemaining.Seconds:00}";
+            $"Solis {FormatCountdown(remaining)} · Clima {FormatCountdown(weatherRemaining)}";
 
         var now = DateTime.Now;
         ClockDateText = now.ToString("yyyy-MM-dd");
         ClockTimeText = now.ToString("HH:mm:ss");
     }
+
+    private static string FormatCountdown(TimeSpan remaining) =>
+        remaining.TotalHours >= 1
+            ? $"{(int)remaining.TotalHours:00}:{remaining.Minutes:00}:{remaining.Seconds:00}"
+            : $"{remaining.Minutes:00}:{remaining.Seconds:00}";
 
     private void ValidateOptions()
     {
@@ -722,6 +769,33 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         var parts = timeStr.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var timePart = parts.Length > 1 ? parts[^1] : parts[0];
         return timePart.Length >= 5 ? timePart[..5] : timePart;
+    }
+
+    private static bool TryParseHourDecimal(string? hhmm, out double hour)
+    {
+        hour = 0;
+        if (string.IsNullOrWhiteSpace(hhmm) || hhmm.Length < 4)
+            return false;
+        if (!TimeOnly.TryParseExact(hhmm, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) &&
+            !TimeOnly.TryParse(hhmm, CultureInfo.InvariantCulture, DateTimeStyles.None, out t))
+            return false;
+        hour = t.Hour + t.Minute / 60d + t.Second / 3600d;
+        return true;
+    }
+
+    private static bool IsSolisRefreshWindow(DateTime utcNow)
+    {
+        var tod = utcNow.TimeOfDay;
+        return tod >= SolisWindowStartUtc && tod < SolisWindowEndUtc;
+    }
+
+    private DateTime NextSolisRefreshUtc(DateTime utcNow)
+    {
+        if (IsSolisRefreshWindow(utcNow))
+            return utcNow.Add(_refreshTimer.Interval);
+
+        var todayStart = utcNow.Date + SolisWindowStartUtc;
+        return utcNow < todayStart ? todayStart : todayStart.AddDays(1);
     }
 
     public void Dispose()

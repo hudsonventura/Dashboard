@@ -1,4 +1,6 @@
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using SolisDashboard.App.Display;
 
 namespace SolisDashboard.App.Models;
 
@@ -31,4 +33,12 @@ public partial class CpuCoreItem : ObservableObject
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private double _usagePercent;
     [ObservableProperty] private string _usageText = "0%";
+    [ObservableProperty] private IBrush _barBrush = UsageBarPalette.ForPercent(0);
+    [ObservableProperty] private bool _isCritical;
+
+    partial void OnUsagePercentChanged(double value)
+    {
+        BarBrush = UsageBarPalette.ForPercent(value);
+        IsCritical = UsageBarPalette.IsCritical(value);
+    }
 }
