@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Solis Dashboard (DotRush)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-app",
+      "program": "${workspaceFolder}/Dashboard/bin/Debug/net10.0/Dashboard.dll",
+      "cwd": "${workspaceFolder}/Dashboard/bin/Debug/net10.0",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Solis Dashboard (DotRush active target)",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${command:dotrush.activeTargetPath}",
+      "cwd": "${command:dotrush.activeProjectDirectory}",
+      "preLaunchTask": "dotrush: Build",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Solis Dashboard (attach)",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:dotrush.pickProcess}"
+    }
+  ]
+}

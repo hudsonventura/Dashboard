@@ -1,0 +1,6 @@
+{
+  "dotnet.defaultSolution": "Dashboard.sln",
+  "dotrush.roslyn.projectOrSolutionFiles": [
+    "Dashboard.sln"
+  ]
+}
