@@ -1,0 +1,167 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Dashboard.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="360"
+             x:Class="Dashboard.Views.CameraView"
+             x:DataType="vm:CameraViewModel"
+             Height="{Binding ViewHeight}">
+
+    <Border Background="#131722" 
+            BorderBrush="#2A2E3D" 
+            BorderThickness="1" 
+            CornerRadius="10" 
+            ClipToBounds="True">
+        <Grid RowDefinitions="Auto, *, Auto">
+            
+            <!-- HEADER OVERLAY -->
+            <Border Grid.Row="0" 
+                    Background="#DD0E121B" 
+                    Padding="12,10" 
+                    ZIndex="10">
+                <Grid ColumnDefinitions="Auto, *, Auto">
+                    
+                    <!-- LIVE STATUS DOT & TITLE -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <!-- Glowing Status Circle -->
+                        <Border Width="12" Height="12" CornerRadius="6" 
+                                Background="{Binding StatusColor}" 
+                                VerticalAlignment="Center">
+                            <Border.Effect>
+                                <DropShadowEffect Color="{Binding StatusColor}" BlurRadius="8" Opacity="0.8" />
+                            </Border.Effect>
+                        </Border>
+                        
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CameraName}" 
+                                       FontSize="14" 
+                                       FontWeight="Bold" 
+                                       Foreground="#FFFFFF" />
+                            <TextBlock Text="{Binding RtspUrl}" 
+                                       FontSize="10" 
+                                       Foreground="#94A3B8" 
+                                       TextTrimming="CharacterEllipsis" 
+                                       MaxWidth="300" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- BADGES (STATUS & FPS) -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Border Background="#1E293B" CornerRadius="4" Padding="6,3">
+                            <TextBlock Text="{Binding FpsText}" 
+                                       FontSize="11" 
+                                       FontWeight="SemiBold" 
+                                       Foreground="#38BDF8" />
+                        </Border>
+
+                        <Border Background="#1E293B" CornerRadius="4" Padding="8,3">
+                            <TextBlock Text="{Binding StatusText}" 
+                                       FontSize="11" 
+                                       FontWeight="Bold" 
+                                       Foreground="{Binding StatusColor}" />
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- VIDEO CONTAINER -->
+            <Grid Grid.Row="1" Background="#0A0D14">
+                
+                <!-- VIDEO IMAGE DISPLAY -->
+                <Image Source="{Binding CurrentFrame}" 
+                       Stretch="Uniform" 
+                       IsVisible="{Binding IsLive}" 
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center" />
+
+                <!-- CONNECTING / PAUSED / ERROR PLACEHOLDER -->
+                <Border IsVisible="{Binding !IsLive}" Background="#0D111A">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                        <Border Width="56" Height="56" CornerRadius="28" Background="#1E293B" HorizontalAlignment="Center">
+                            <PathIcon Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6Z" 
+                                      Foreground="#64748B" Width="28" Height="28" />
+                        </Border>
+
+                        <TextBlock Text="{Binding StatusText}" 
+                                   FontSize="16" 
+                                   FontWeight="Bold" 
+                                   Foreground="#F8FAFC" 
+                                   HorizontalAlignment="Center" />
+
+                        <TextBlock Text="{Binding ErrorMessage}" 
+                                   FontSize="12" 
+                                   Foreground="#EF4444" 
+                                   HorizontalAlignment="Center" 
+                                   TextWrapping="Wrap" 
+                                   MaxWidth="400"
+                                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                        <TextBlock Text="Decoder FFmpeg RTSP Ativo" 
+                                   FontSize="11" 
+                                   Foreground="#64748B" 
+                                   HorizontalAlignment="Center" />
+
+                        <Button Command="{Binding ReconnectCommand}" 
+                                Content="Tentar Reconectar" 
+                                Background="#2563EB" 
+                                Foreground="White" 
+                                CornerRadius="6" 
+                                Padding="12,6" 
+                                Margin="0,8,0,0"
+                                HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- FOOTER CONTROLS OVERLAY -->
+            <Border Grid.Row="2" 
+                    Background="#EE0E121B" 
+                    Padding="10,6">
+                <Grid ColumnDefinitions="*, Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <!-- PLAY / PAUSE BUTTON -->
+                        <Button Command="{Binding TogglePlayCommand}" 
+                                Background="#1E293B" 
+                                Foreground="#F8FAFC" 
+                                CornerRadius="6" 
+                                Padding="10,6"
+                                ToolTip.Tip="Pausar / Iniciar Stream">
+                            <TextBlock Text="Pausar / Iniciar" FontSize="12" />
+                        </Button>
+
+                        <!-- RECONNECT BUTTON -->
+                        <Button Command="{Binding ReconnectCommand}" 
+                                Background="#1E293B" 
+                                Foreground="#F8FAFC" 
+                                CornerRadius="6" 
+                                Padding="10,6"
+                                ToolTip.Tip="Reiniciar Transmissão FFmpeg">
+                            <TextBlock Text="Reconectar" FontSize="12" />
+                        </Button>
+
+                        <!-- SNAPSHOT BUTTON -->
+                        <Button Command="{Binding SaveSnapshotCommand}" 
+                                Background="#1E293B" 
+                                Foreground="#F8FAFC" 
+                                CornerRadius="6" 
+                                Padding="10,6"
+                                ToolTip.Tip="Salvar Foto PNG">
+                            <TextBlock Text="Capturar Foto" FontSize="12" />
+                        </Button>
+                    </StackPanel>
+
+                    <!-- EXPAND BUTTON -->
+                    <Button Grid.Column="1" 
+                            Command="{Binding ToggleExpandCommand}" 
+                            Background="#3B82F6" 
+                            Foreground="White" 
+                            CornerRadius="6" 
+                            Padding="10,6">
+                        <TextBlock Text="Maximizar / Restaurar" FontSize="12" FontWeight="SemiBold" />
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

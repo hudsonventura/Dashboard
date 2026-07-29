@@ -1,0 +1,130 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Dashboard.ViewModels"
+        xmlns:views="using:Dashboard.Views"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
+        x:Class="Dashboard.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="{Binding Title}"
+        Width="1280" Height="760"
+        MinWidth="800" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#0B0E14">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto, *, Auto">
+        
+        <!-- TOP APP HEADER -->
+        <Border Grid.Row="0" Background="#131722" BorderBrush="#1F2433" BorderThickness="0,0,0,1" Padding="20,12">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                
+                <!-- TITLE & BRANDING -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                    <Border Width="36" Height="36" CornerRadius="8" Background="#2563EB">
+                        <TextBlock Text="📹" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="MONITOR DE CÂMERAS RTSP" 
+                                   FontSize="16" 
+                                   FontWeight="Bold" 
+                                   Foreground="#F8FAFC" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Engine: FFmpeg (Sem VLC)" FontSize="11" Foreground="#10B981" FontWeight="SemiBold" />
+                            <TextBlock Text="|" FontSize="11" Foreground="#475569" />
+                            <TextBlock Text="Linux Native" FontSize="11" Foreground="#94A3B8" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- HEADER ACTIONS & CLOCK -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    
+                    <!-- CURRENT TIME -->
+                    <Border Background="#1E293B" CornerRadius="6" Padding="12,6">
+                        <TextBlock Text="{Binding CurrentTimeText}" 
+                                   FontSize="13" 
+                                   FontWeight="Bold" 
+                                   Foreground="#38BDF8" 
+                                   FontFamily="Monospace, Consolas, Courier New" />
+                    </Border>
+
+                    <!-- RESTORE DUAL VIEW BUTTON -->
+                    <Button Command="{Binding RestoreDualViewCommand}" 
+                            IsVisible="{Binding !IsDualView}"
+                            Background="#3B82F6" 
+                            Foreground="White" 
+                            CornerRadius="6" 
+                            Padding="12,6">
+                        <TextBlock Text="Ver Duas Câmeras" FontSize="12" FontWeight="Bold" />
+                    </Button>
+
+                    <!-- RELOAD CONFIG BUTTON -->
+                    <Button Command="{Binding LoadConfigurationCommand}" 
+                            Background="#1E293B" 
+                            Foreground="#F8FAFC" 
+                            CornerRadius="6" 
+                            Padding="12,6"
+                            ToolTip.Tip="Recarregar appsettings.json">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="🔄" FontSize="12" />
+                            <TextBlock Text="Recarregar Config" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- MAIN CAMERAS DISPLAY AREA -->
+        <Grid Grid.Row="1" Margin="16">
+            
+            <!-- DUAL VIEW (RESPECTING HEIGHTS FROM APPSETTINGS.JSON: PRIMARY=410px, SECONDARY=180px) -->
+            <ScrollViewer IsVisible="{Binding IsDualView}" 
+                          HorizontalScrollBarVisibility="Disabled" 
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="16">
+                    <!-- PRIMARY CAMERA CONTAINER (Height = 410px) -->
+                    <views:CameraView DataContext="{Binding PrimaryCamera}" />
+
+                    <!-- SECONDARY CAMERA CONTAINER (Height = 180px) -->
+                    <views:CameraView DataContext="{Binding SecondaryCamera}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- SINGLE EXPANDED CAMERA VIEW -->
+            <Grid IsVisible="{Binding !IsDualView}">
+                <views:CameraView DataContext="{Binding FocusedCamera}" 
+                                  VerticalAlignment="Stretch" 
+                                  HorizontalAlignment="Stretch" />
+            </Grid>
+        </Grid>
+
+        <!-- FOOTER STATUS BAR -->
+        <Border Grid.Row="2" Background="#0E121B" BorderBrush="#1F2433" BorderThickness="0,1,0,0" Padding="16,8">
+            <Grid ColumnDefinitions="*, Auto">
+                <TextBlock Grid.Column="0" 
+                           Text="{Binding ConfigStatusMessage}" 
+                           FontSize="12" 
+                           Foreground="#94A3B8" 
+                           VerticalAlignment="Center" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <Border Background="#1E293B" CornerRadius="4" Padding="8,4">
+                        <TextBlock Text="[Ctrl+Enter] Tela Cheia | [ESC / Botão Direito] Sair" 
+                                   FontSize="11" 
+                                   Foreground="#38BDF8" 
+                                   FontWeight="SemiBold" />
+                    </Border>
+                    <TextBlock Text="Config: appsettings.json" FontSize="11" Foreground="#64748B" />
+                    <TextBlock Text="Framework: Avalonia .NET 10" FontSize="11" Foreground="#64748B" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
