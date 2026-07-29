@@ -1,11 +1,14 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Dashboard.Models;
+using Dashboard.Services;
 using Microsoft.Extensions.Configuration;
 
 namespace Dashboard.ViewModels;
@@ -60,10 +63,27 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _weatherLocationText = "Cuiabá - MT";
 
     [ObservableProperty]
-    private string _weatherTimezoneText = "America/Cuiaba";
+    private string _weatherCurrentTempText = "-- °C";
 
     [ObservableProperty]
-    private string _weatherCoordsText = "-15.5989, -56.0949";
+    private string _weatherCurrentHumidityText = "-- %";
+
+    [ObservableProperty]
+    private string _weatherConditionText = "Carregando...";
+
+    [ObservableProperty]
+    private string _weatherIconEmoji = "☀️";
+
+    [ObservableProperty]
+    private string _weatherLastUpdatedText = "Atualizando...";
+
+    [ObservableProperty]
+    private string _weatherErrorMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isWeatherLoading;
+
+    public ObservableCollection<DailyForecast> ForecastDays { get; } = new();
 
     // SYSTEM MONITOR PROPERTIES (30% Right Field - Bottom)
     [ObservableProperty]
@@ -79,18 +99,29 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _sysOsText = "Linux x86_64";
 
     private readonly DispatcherTimer _clockTimer;
+    private readonly DispatcherTimer _weatherTimer;
     private readonly DateTime _startTime = DateTime.Now;
+
+    private WeatherSettings _weatherSettings = new();
 
     public MainWindowViewModel()
     {
         SysOsText = $"{RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture})";
 
+        // Clock timer (updates time & system metrics every 1s)
         _clockTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
         };
         _clockTimer.Tick += OnClockTick;
         _clockTimer.Start();
+
+        // Weather timer (updates weather every 30 minutes)
+        _weatherTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMinutes(30)
+        };
+        _weatherTimer.Tick += async (s, e) => await FetchWeatherAsync();
 
         LoadConfiguration();
     }
@@ -140,18 +171,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             configRoot.Bind(appConfig);
 
             IsCamerasEnabled = appConfig.Cameras.Enabled;
+            _weatherSettings = appConfig.Weather;
 
-            // Load Solis configuration details
+            // Load Solis details
             SolisApiUrlText = string.IsNullOrEmpty(appConfig.Solis.ApiUrl) ? "https://www.soliscloud.com:13333" : appConfig.Solis.ApiUrl;
             SolisKeyIdText = string.IsNullOrEmpty(appConfig.Solis.KeyId) ? "1300386381677723412" : appConfig.Solis.KeyId;
             SolisInverterModelText = string.IsNullOrEmpty(appConfig.Solis.InverterModel) ? "S6-GR1P6K-S" : appConfig.Solis.InverterModel;
             SolisCurrencyText = string.IsNullOrEmpty(appConfig.Solis.Currency) ? "BRL" : appConfig.Solis.Currency;
             SolisTimeZoneText = $"GMT {appConfig.Solis.TimeZone}";
 
-            // Load Weather configuration details
+            // Load Weather settings
             WeatherProviderText = string.IsNullOrEmpty(appConfig.Weather.Provider) ? "OpenMeteo" : appConfig.Weather.Provider;
-            WeatherTimezoneText = string.IsNullOrEmpty(appConfig.Weather.Timezone) ? "America/Cuiaba" : appConfig.Weather.Timezone;
-            WeatherCoordsText = $"{appConfig.Weather.Latitude:F4}, {appConfig.Weather.Longitude:F4}";
+            WeatherLocationText = string.IsNullOrEmpty(appConfig.Weather.Timezone) ? "America/Cuiaba" : appConfig.Weather.Timezone;
 
             // Dispose existing camera stream services if reloading
             PrimaryCamera?.Dispose();
@@ -175,17 +206,90 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             SecondaryCamera.OnToggleExpandRequested += HandleCameraExpandRequested;
 
-            ConfigStatusMessage = "Configurações do appsettings.json carregadas com sucesso.";
+            ConfigStatusMessage = "Configurações carregadas com sucesso.";
 
             if (IsCamerasEnabled)
             {
                 PrimaryCamera.StartStream();
                 SecondaryCamera.StartStream();
             }
+
+            // Fetch initial weather data & start 30-minute timer
+            _weatherTimer.Stop();
+            _weatherTimer.Start();
+            _ = FetchWeatherAsync();
         }
         catch (Exception ex)
         {
             ConfigStatusMessage = $"Erro ao carregar appsettings.json: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    public async Task FetchWeatherAsync()
+    {
+        IsWeatherLoading = true;
+        WeatherErrorMessage = string.Empty;
+
+        try
+        {
+            IWeatherService weatherService = WeatherServiceFactory.Create(_weatherSettings);
+            WeatherData data = await weatherService.GetWeatherAsync(
+                _weatherSettings.Latitude != 0 ? _weatherSettings.Latitude : -15.5989,
+                _weatherSettings.Longitude != 0 ? _weatherSettings.Longitude : -56.0949,
+                _weatherSettings.Timezone);
+
+            WeatherProviderText = data.ProviderName;
+            WeatherLocationText = data.LocationName;
+
+            WeatherCurrentTempText = $"{data.Current.Temperature:F1} °C";
+            WeatherCurrentHumidityText = $"{data.Current.Humidity}%";
+            WeatherConditionText = data.Current.ConditionText;
+            WeatherIconEmoji = data.Current.IconEmoji;
+            WeatherLastUpdatedText = $"Atualizado às {data.LastUpdated:HH:mm} (30 min auto)";
+
+            ForecastDays.Clear();
+            foreach (var day in data.Forecast)
+            {
+                ForecastDays.Add(day);
+            }
+        }
+        catch (Exception ex)
+        {
+            // If primary provider (e.g. OpenWeather without key) fails, attempt fallback to OpenMeteo
+            if (!_weatherSettings.Provider.Equals("OpenMeteo", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var fallbackService = new OpenMeteoService();
+                    WeatherData fallbackData = await fallbackService.GetWeatherAsync(
+                        _weatherSettings.Latitude != 0 ? _weatherSettings.Latitude : -15.5989,
+                        _weatherSettings.Longitude != 0 ? _weatherSettings.Longitude : -56.0949,
+                        _weatherSettings.Timezone);
+
+                    WeatherProviderText = "OpenMeteo (Fallback)";
+                    WeatherLocationText = fallbackData.LocationName;
+                    WeatherCurrentTempText = $"{fallbackData.Current.Temperature:F1} °C";
+                    WeatherCurrentHumidityText = $"{fallbackData.Current.Humidity}%";
+                    WeatherConditionText = fallbackData.Current.ConditionText;
+                    WeatherIconEmoji = fallbackData.Current.IconEmoji;
+                    WeatherLastUpdatedText = $"Atualizado às {fallbackData.LastUpdated:HH:mm} (Fallback)";
+
+                    ForecastDays.Clear();
+                    foreach (var day in fallbackData.Forecast)
+                    {
+                        ForecastDays.Add(day);
+                    }
+                    return;
+                }
+                catch { }
+            }
+
+            WeatherErrorMessage = $"Erro ao obter clima: {ex.Message}";
+        }
+        finally
+        {
+            IsWeatherLoading = false;
         }
     }
 
@@ -230,6 +334,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _clockTimer.Stop();
+        _weatherTimer.Stop();
         PrimaryCamera?.Dispose();
         SecondaryCamera?.Dispose();
     }

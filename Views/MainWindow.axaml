@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Dashboard.ViewModels"
         xmlns:views="using:Dashboard.Views"
+        xmlns:models="using:Dashboard.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="850"
@@ -9,7 +10,7 @@
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="{Binding Title}"
-        Width="1380" Height="860"
+        Width="1380" Height="880"
         MinWidth="900" MinHeight="650"
         WindowStartupLocation="CenterScreen"
         Background="#0B0E14">
@@ -159,29 +160,108 @@
                                 BorderThickness="1" 
                                 CornerRadius="10" 
                                 Padding="16">
-                            <StackPanel Spacing="10">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Border Width="26" Height="26" CornerRadius="6" Background="#0284C7">
-                                        <TextBlock Text="🌤️" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock Text="CLIMA (WEATHER)" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
+                            <Grid RowDefinitions="Auto, Auto, Auto">
+                                <!-- HEADER WEATHER -->
+                                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,12">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <Border Width="26" Height="26" CornerRadius="6" Background="#0284C7">
+                                            <TextBlock Text="🌤️" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <TextBlock Text="CLIMA &amp; PREVISÃO" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <Border Background="#1E293B" CornerRadius="4" Padding="6,3">
+                                            <TextBlock Text="{Binding WeatherProviderText}" FontSize="10" FontWeight="Bold" Foreground="#10B981" />
+                                        </Border>
+                                        <Button Command="{Binding FetchWeatherCommand}" Background="#1E293B" Foreground="#F8FAFC" CornerRadius="4" Padding="6,2" ToolTip.Tip="Atualizar Clima">
+                                            <TextBlock Text="🔄" FontSize="10" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- LINHA 1: TEMPERATURA E UMIDADE ATUAIS NA MESMA LINHA -->
+                                <Border Grid.Row="1" Background="#1E293B" CornerRadius="8" Padding="12,10" Margin="0,0,0,12">
+                                    <Grid ColumnDefinitions="Auto, *, Auto">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding WeatherIconEmoji}" FontSize="24" VerticalAlignment="Center" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                    <!-- TEMPERATURA -->
+                                                    <TextBlock Text="{Binding WeatherCurrentTempText}" 
+                                                               FontSize="18" 
+                                                               FontWeight="Bold" 
+                                                               Foreground="#F8FAFC" />
+                                                    <TextBlock Text="|" FontSize="16" Foreground="#475569" Margin="2,0" />
+                                                    <!-- UMIDADE -->
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                        <TextBlock Text="💧" FontSize="12" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding WeatherCurrentHumidityText}" 
+                                                                   FontSize="15" 
+                                                                   FontWeight="Bold" 
+                                                                   Foreground="#38BDF8" 
+                                                                   VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding WeatherConditionText}" FontSize="11" Foreground="#94A3B8" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2" 
+                                                   Text="{Binding WeatherLastUpdatedText}" 
+                                                   FontSize="9" 
+                                                   Foreground="#64748B" 
+                                                   VerticalAlignment="Bottom" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- LINHA 2: MÁXIMA E MÍNIMA PARA OS PRÓXIMOS 4 DIAS -->
+                                <StackPanel Grid.Row="2" Spacing="6">
+                                    <TextBlock Text="PREVISÃO PRÓXIMOS 4 DIAS (MÁX / MÍN)" FontSize="10" FontWeight="Bold" Foreground="#64748B" />
+                                    
+                                    <ItemsControl ItemsSource="{Binding ForecastDays}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="4" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:DailyForecast">
+                                                <Border Background="#182030" 
+                                                        BorderBrush="#263147" 
+                                                        BorderThickness="1" 
+                                                        CornerRadius="6" 
+                                                        Padding="4,6" 
+                                                        Margin="2">
+                                                    <StackPanel Spacing="3" HorizontalAlignment="Center">
+                                                        <TextBlock Text="{Binding DayOfWeek}" 
+                                                                   FontSize="10" 
+                                                                   FontWeight="Bold" 
+                                                                   Foreground="#F8FAFC" 
+                                                                   HorizontalAlignment="Center" />
+                                                        
+                                                        <TextBlock Text="{Binding IconEmoji}" 
+                                                                   FontSize="14" 
+                                                                   HorizontalAlignment="Center" />
+
+                                                        <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
+                                                            <TextBlock Text="{Binding TempMax, StringFormat='{}{0:F0}°'}" 
+                                                                       FontSize="10" 
+                                                                       FontWeight="Bold" 
+                                                                       Foreground="#F97316" />
+                                                            <TextBlock Text="/" FontSize="10" Foreground="#475569" />
+                                                            <TextBlock Text="{Binding TempMin, StringFormat='{}{0:F0}°'}" 
+                                                                       FontSize="10" 
+                                                                       FontWeight="Bold" 
+                                                                       Foreground="#38BDF8" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
-
-                                <Border Background="#1E293B" CornerRadius="6" Padding="12">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Provedor Meteorológico" FontSize="11" Foreground="#94A3B8" />
-                                        <TextBlock Text="{Binding WeatherProviderText}" FontSize="13" FontWeight="Bold" Foreground="#10B981" />
-                                        <TextBlock Text="{Binding WeatherTimezoneText}" FontSize="11" Foreground="#64748B" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Background="#1E293B" CornerRadius="6" Padding="12">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Coordenadas Lat / Long" FontSize="11" Foreground="#94A3B8" />
-                                        <TextBlock Text="{Binding WeatherCoordsText}" FontSize="12" FontWeight="Bold" Foreground="#38BDF8" />
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
+                            </Grid>
                         </Border>
 
                         <!-- MONITOR DO SISTEMA (ABAIXO DO PAINEL WEATHER) -->

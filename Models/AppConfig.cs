@@ -24,6 +24,14 @@ public class WeatherSettings
     public double Longitude { get; set; }
     public string Timezone { get; set; } = string.Empty;
     public string Provider { get; set; } = "OpenMeteo";
+    public OpenWeatherSettings OpenWeather { get; set; } = new();
+}
+
+public class OpenWeatherSettings
+{
+    public string ApiKey { get; set; } = string.Empty;
+    public string Units { get; set; } = "metric";
+    public string Lang { get; set; } = "pt_br";
 }
 
 public class CameraSettings
