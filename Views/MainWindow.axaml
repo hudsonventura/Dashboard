@@ -4,13 +4,13 @@
         xmlns:views="using:Dashboard.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="850"
         x:Class="Dashboard.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="{Binding Title}"
-        Width="1280" Height="760"
-        MinWidth="800" MinHeight="600"
+        Width="1380" Height="860"
+        MinWidth="900" MinHeight="650"
         WindowStartupLocation="CenterScreen"
         Background="#0B0E14">
 
@@ -31,7 +31,7 @@
                     </Border>
 
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="MONITOR DE CÂMERAS RTSP" 
+                        <TextBlock Text="MONITOR DE CÂMERAS RTSP &amp; DASHBOARD" 
                                    FontSize="16" 
                                    FontWeight="Bold" 
                                    Foreground="#F8FAFC" />
@@ -81,29 +81,167 @@
             </Grid>
         </Border>
 
-        <!-- MAIN CAMERAS DISPLAY AREA -->
-        <Grid Grid.Row="1" Margin="16">
-            
-            <!-- DUAL VIEW (RESPECTING HEIGHTS FROM APPSETTINGS.JSON: PRIMARY=410px, SECONDARY=180px) -->
-            <ScrollViewer IsVisible="{Binding IsDualView}" 
-                          HorizontalScrollBarVisibility="Disabled" 
-                          VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="16">
-                    <!-- PRIMARY CAMERA CONTAINER (Height = 410px) -->
-                    <views:CameraView DataContext="{Binding PrimaryCamera}" />
+        <!-- MAIN CONTENT AREA -->
+        <ScrollViewer Grid.Row="1" Margin="16" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <Grid>
+                <!-- DUAL VIEW: 70% ESQUERDA (CÂMERA PRINCIPAL + SOLIS) / 30% DIREITA (CÂMERA SECUNDÁRIA + WEATHER + MONITOR) -->
+                <Grid IsVisible="{Binding IsDualView}" ColumnDefinitions="7*, 16, 3*">
+                    
+                    <!-- COLUNA ESQUERDA (70% DE LARGURA) -->
+                    <StackPanel Grid.Column="0" Spacing="16">
+                        
+                        <!-- CÂMERA PRINCIPAL (70% LARGURA - HEIGHT 410px) -->
+                        <views:CameraView DataContext="{Binding PrimaryCamera}" />
 
-                    <!-- SECONDARY CAMERA CONTAINER (Height = 180px) -->
-                    <views:CameraView DataContext="{Binding SecondaryCamera}" />
-                </StackPanel>
-            </ScrollViewer>
+                        <!-- PAINEL SOLIS (70% LARGURA - ABAIXO DA CÂMERA PRINCIPAL) -->
+                        <Border Background="#131722" 
+                                BorderBrush="#2A2E3D" 
+                                BorderThickness="1" 
+                                CornerRadius="10" 
+                                Padding="18">
+                            <Grid RowDefinitions="Auto, *">
+                                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,14">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                        <Border Width="28" Height="28" CornerRadius="6" Background="#F59E0B">
+                                            <TextBlock Text="⚡" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <TextBlock Text="PAINEL SOLIS - INVERSOR &amp; TELEMETRIA (70%)" 
+                                                   FontSize="14" 
+                                                   FontWeight="Bold" 
+                                                   Foreground="#F8FAFC" 
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
 
-            <!-- SINGLE EXPANDED CAMERA VIEW -->
-            <Grid IsVisible="{Binding !IsDualView}">
-                <views:CameraView DataContext="{Binding FocusedCamera}" 
-                                  VerticalAlignment="Stretch" 
-                                  HorizontalAlignment="Stretch" />
+                                    <Border Grid.Column="1" Background="#10B981" CornerRadius="4" Padding="8,4">
+                                        <TextBlock Text="SOLIS CLOUD CONECTADO" FontSize="11" FontWeight="Bold" Foreground="White" />
+                                    </Border>
+                                </Grid>
+
+                                <Grid Grid.Row="1" ColumnDefinitions="*, *, *">
+                                    <Border Grid.Column="0" Background="#1E293B" CornerRadius="8" Padding="14" Margin="0,0,6,0">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Modelo do Inversor" FontSize="11" Foreground="#94A3B8" />
+                                            <TextBlock Text="{Binding SolisInverterModelText}" FontSize="14" FontWeight="Bold" Foreground="#38BDF8" />
+                                            <TextBlock Text="Solis S6 Single Phase" FontSize="11" Foreground="#64748B" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="1" Background="#1E293B" CornerRadius="8" Padding="14" Margin="6,0,6,0">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Key ID &amp; Fuso" FontSize="11" Foreground="#94A3B8" />
+                                            <TextBlock Text="{Binding SolisKeyIdText}" FontSize="12" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding SolisTimeZoneText}" FontSize="11" Foreground="#10B981" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="2" Background="#1E293B" CornerRadius="8" Padding="14" Margin="6,0,0,0">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Endpoint API &amp; Moeda" FontSize="11" Foreground="#94A3B8" />
+                                            <TextBlock Text="{Binding SolisApiUrlText}" FontSize="11" FontWeight="SemiBold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding SolisCurrencyText}" FontSize="11" FontWeight="Bold" Foreground="#F59E0B" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+
+                    <!-- COLUNA DIREITA (30% DE LARGURA) -->
+                    <StackPanel Grid.Column="2" Spacing="16">
+                        
+                        <!-- CÂMERA SECUNDÁRIA (30% LARGURA - HEIGHT 180px) -->
+                        <views:CameraView DataContext="{Binding SecondaryCamera}" />
+
+                        <!-- PAINEL WEATHER (CLIMA - ABAIXO DA CÂMERA SECUNDÁRIA) -->
+                        <Border Background="#131722" 
+                                BorderBrush="#2A2E3D" 
+                                BorderThickness="1" 
+                                CornerRadius="10" 
+                                Padding="16">
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Border Width="26" Height="26" CornerRadius="6" Background="#0284C7">
+                                        <TextBlock Text="🌤️" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="CLIMA (WEATHER)" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <Border Background="#1E293B" CornerRadius="6" Padding="12">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Provedor Meteorológico" FontSize="11" Foreground="#94A3B8" />
+                                        <TextBlock Text="{Binding WeatherProviderText}" FontSize="13" FontWeight="Bold" Foreground="#10B981" />
+                                        <TextBlock Text="{Binding WeatherTimezoneText}" FontSize="11" Foreground="#64748B" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Background="#1E293B" CornerRadius="6" Padding="12">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Coordenadas Lat / Long" FontSize="11" Foreground="#94A3B8" />
+                                        <TextBlock Text="{Binding WeatherCoordsText}" FontSize="12" FontWeight="Bold" Foreground="#38BDF8" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- MONITOR DO SISTEMA (ABAIXO DO PAINEL WEATHER) -->
+                        <Border Background="#131722" 
+                                BorderBrush="#2A2E3D" 
+                                BorderThickness="1" 
+                                CornerRadius="10" 
+                                Padding="16">
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Border Width="26" Height="26" CornerRadius="6" Background="#7C3AED">
+                                        <TextBlock Text="🖥️" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="MONITOR DO SISTEMA" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <Grid RowDefinitions="Auto, Auto" ColumnDefinitions="*, *">
+                                    <Border Grid.Row="0" Grid.Column="0" Background="#1E293B" CornerRadius="6" Padding="10" Margin="0,0,4,4">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="Uso de Memória RAM" FontSize="10" Foreground="#94A3B8" />
+                                            <TextBlock Text="{Binding SysMemoryText}" FontSize="12" FontWeight="Bold" Foreground="#38BDF8" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Row="0" Grid.Column="1" Background="#1E293B" CornerRadius="6" Padding="10" Margin="4,0,0,4">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="Uptime App" FontSize="10" Foreground="#94A3B8" />
+                                            <TextBlock Text="{Binding SysUptimeText}" FontSize="12" FontWeight="Bold" Foreground="#10B981" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Row="1" Grid.Column="0" Background="#1E293B" CornerRadius="6" Padding="10" Margin="0,4,4,0">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="Threads Ativas" FontSize="10" Foreground="#94A3B8" />
+                                            <TextBlock Text="{Binding SysThreadsText}" FontSize="12" FontWeight="Bold" Foreground="#F8FAFC" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Row="1" Grid.Column="1" Background="#1E293B" CornerRadius="6" Padding="10" Margin="4,4,0,0">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="Plataforma OS" FontSize="10" Foreground="#94A3B8" />
+                                            <TextBlock Text="{Binding SysOsText}" FontSize="10" FontWeight="Bold" Foreground="#F59E0B" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+
+                </Grid>
+
+                <!-- SINGLE EXPANDED CAMERA VIEW -->
+                <Grid IsVisible="{Binding !IsDualView}">
+                    <views:CameraView DataContext="{Binding FocusedCamera}" 
+                                      VerticalAlignment="Stretch" 
+                                      HorizontalAlignment="Stretch" />
+                </Grid>
             </Grid>
-        </Grid>
+        </ScrollViewer>
 
         <!-- FOOTER STATUS BAR -->
         <Border Grid.Row="2" Background="#0E121B" BorderBrush="#1F2433" BorderThickness="0,1,0,0" Padding="16,8">

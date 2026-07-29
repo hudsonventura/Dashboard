@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,7 +13,7 @@ namespace Dashboard.ViewModels;
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     [ObservableProperty]
-    private string _title = "Monitor de Câmeras RTSP (FFmpeg)";
+    private string _title = "Monitor de Câmeras RTSP & Dashboard";
 
     [ObservableProperty]
     private CameraViewModel? _primaryCamera;
@@ -34,18 +36,80 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _configStatusMessage = string.Empty;
 
+    // SOLIS PANEL PROPERTIES (70% Left Field)
+    [ObservableProperty]
+    private string _solisApiUrlText = "https://www.soliscloud.com:13333";
+
+    [ObservableProperty]
+    private string _solisKeyIdText = "1300386381677723412";
+
+    [ObservableProperty]
+    private string _solisInverterModelText = "S6-GR1P6K-S";
+
+    [ObservableProperty]
+    private string _solisCurrencyText = "BRL (R$)";
+
+    [ObservableProperty]
+    private string _solisTimeZoneText = "GMT -3";
+
+    // WEATHER PANEL PROPERTIES (30% Right Field - Middle)
+    [ObservableProperty]
+    private string _weatherProviderText = "OpenMeteo";
+
+    [ObservableProperty]
+    private string _weatherLocationText = "Cuiabá - MT";
+
+    [ObservableProperty]
+    private string _weatherTimezoneText = "America/Cuiaba";
+
+    [ObservableProperty]
+    private string _weatherCoordsText = "-15.5989, -56.0949";
+
+    // SYSTEM MONITOR PROPERTIES (30% Right Field - Bottom)
+    [ObservableProperty]
+    private string _sysMemoryText = "0 MB";
+
+    [ObservableProperty]
+    private string _sysUptimeText = "00:00:00";
+
+    [ObservableProperty]
+    private string _sysThreadsText = "0 Threads";
+
+    [ObservableProperty]
+    private string _sysOsText = "Linux x86_64";
+
     private readonly DispatcherTimer _clockTimer;
+    private readonly DateTime _startTime = DateTime.Now;
 
     public MainWindowViewModel()
     {
+        SysOsText = $"{RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture})";
+
         _clockTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
         };
-        _clockTimer.Tick += (s, e) => CurrentTimeText = DateTime.Now.ToString("HH:mm:ss - dd/MM/yyyy");
+        _clockTimer.Tick += OnClockTick;
         _clockTimer.Start();
 
         LoadConfiguration();
+    }
+
+    private void OnClockTick(object? sender, EventArgs e)
+    {
+        CurrentTimeText = DateTime.Now.ToString("HH:mm:ss - dd/MM/yyyy");
+
+        // Update real system monitor metrics
+        TimeSpan uptime = DateTime.Now - _startTime;
+        SysUptimeText = $"{uptime.Hours:D2}:{uptime.Minutes:D2}:{uptime.Seconds:D2}";
+
+        long memoryBytes = GC.GetTotalMemory(false);
+        SysMemoryText = $"{memoryBytes / (1024.0 * 1024.0):F1} MB";
+
+        using (var process = Process.GetCurrentProcess())
+        {
+            SysThreadsText = $"{process.Threads.Count} Threads";
+        }
     }
 
     [RelayCommand]
@@ -77,11 +141,23 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             IsCamerasEnabled = appConfig.Cameras.Enabled;
 
+            // Load Solis configuration details
+            SolisApiUrlText = string.IsNullOrEmpty(appConfig.Solis.ApiUrl) ? "https://www.soliscloud.com:13333" : appConfig.Solis.ApiUrl;
+            SolisKeyIdText = string.IsNullOrEmpty(appConfig.Solis.KeyId) ? "1300386381677723412" : appConfig.Solis.KeyId;
+            SolisInverterModelText = string.IsNullOrEmpty(appConfig.Solis.InverterModel) ? "S6-GR1P6K-S" : appConfig.Solis.InverterModel;
+            SolisCurrencyText = string.IsNullOrEmpty(appConfig.Solis.Currency) ? "BRL" : appConfig.Solis.Currency;
+            SolisTimeZoneText = $"GMT {appConfig.Solis.TimeZone}";
+
+            // Load Weather configuration details
+            WeatherProviderText = string.IsNullOrEmpty(appConfig.Weather.Provider) ? "OpenMeteo" : appConfig.Weather.Provider;
+            WeatherTimezoneText = string.IsNullOrEmpty(appConfig.Weather.Timezone) ? "America/Cuiaba" : appConfig.Weather.Timezone;
+            WeatherCoordsText = $"{appConfig.Weather.Latitude:F4}, {appConfig.Weather.Longitude:F4}";
+
             // Dispose existing camera stream services if reloading
             PrimaryCamera?.Dispose();
             SecondaryCamera?.Dispose();
 
-            // Initialize Primary Camera with configured height from appsettings.json
+            // Initialize Primary Camera (70% width left column, height 410px)
             var primaryItem = appConfig.Cameras.Primary;
             PrimaryCamera = new CameraViewModel(
                 string.IsNullOrEmpty(primaryItem.Name) ? "Câmera Principal" : primaryItem.Name,
@@ -90,7 +166,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             PrimaryCamera.OnToggleExpandRequested += HandleCameraExpandRequested;
 
-            // Initialize Secondary Camera with configured height from appsettings.json
+            // Initialize Secondary Camera (30% width right column, height 180px)
             var secondaryItem = appConfig.Cameras.Secondary;
             SecondaryCamera = new CameraViewModel(
                 string.IsNullOrEmpty(secondaryItem.Name) ? "Câmera Secundária" : secondaryItem.Name,
@@ -99,7 +175,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             SecondaryCamera.OnToggleExpandRequested += HandleCameraExpandRequested;
 
-            ConfigStatusMessage = "Configurações carregadas com sucesso.";
+            ConfigStatusMessage = "Configurações do appsettings.json carregadas com sucesso.";
 
             if (IsCamerasEnabled)
             {
