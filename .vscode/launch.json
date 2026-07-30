@@ -6,8 +6,8 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-app",
-      "program": "${workspaceFolder}/Dashboard/bin/Debug/net10.0/Dashboard.dll",
-      "cwd": "${workspaceFolder}/Dashboard/bin/Debug/net10.0",
+      "program": "${workspaceFolder}/bin/Debug/net10.0/Dashboard.dll",
+      "cwd": "${workspaceFolder}",
       "console": "internalConsole",
       "stopAtEntry": false
     },
