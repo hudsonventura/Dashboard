@@ -21,66 +21,14 @@
 
     <Grid RowDefinitions="Auto, *, Auto">
         
-        <!-- TOP APP HEADER -->
-        <Border Grid.Row="0" Background="#131722" BorderBrush="#1F2433" BorderThickness="0,0,0,1" Padding="20,12">
-            <Grid ColumnDefinitions="Auto, *, Auto">
-                
-                <!-- TITLE & BRANDING -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
-                    <Border Width="36" Height="36" CornerRadius="8" Background="#2563EB">
-                        <TextBlock Text="📹" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="MONITOR DE CÂMERAS RTSP &amp; DASHBOARD" 
-                                   FontSize="16" 
-                                   FontWeight="Bold" 
-                                   Foreground="#F8FAFC" />
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="Engine: FFmpeg (Sem VLC)" FontSize="11" Foreground="#10B981" FontWeight="SemiBold" />
-                            <TextBlock Text="|" FontSize="11" Foreground="#475569" />
-                            <TextBlock Text="Linux Native" FontSize="11" Foreground="#94A3B8" />
-                        </StackPanel>
-                    </StackPanel>
-                </StackPanel>
-
-                <!-- HEADER ACTIONS & CLOCK -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    
-                    <!-- CURRENT TIME -->
-                    <Border Background="#1E293B" CornerRadius="6" Padding="12,6">
-                        <TextBlock Text="{Binding CurrentTimeText}" 
-                                   FontSize="13" 
-                                   FontWeight="Bold" 
-                                   Foreground="#38BDF8" 
-                                   FontFamily="Monospace, Consolas, Courier New" />
-                    </Border>
-
-                    <!-- RESTORE DUAL VIEW BUTTON -->
-                    <Button Command="{Binding RestoreDualViewCommand}" 
-                            IsVisible="{Binding !IsDualView}"
-                            Background="#3B82F6" 
-                            Foreground="White" 
-                            CornerRadius="6" 
-                            Padding="12,6">
-                        <TextBlock Text="Ver Duas Câmeras" FontSize="12" FontWeight="Bold" />
-                    </Button>
-
-                    <!-- RELOAD CONFIG BUTTON -->
-                    <Button Command="{Binding LoadConfigurationCommand}" 
-                            Background="#1E293B" 
-                            Foreground="#F8FAFC" 
-                            CornerRadius="6" 
-                            Padding="12,6"
-                            ToolTip.Tip="Recarregar appsettings.json">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="🔄" FontSize="12" />
-                            <TextBlock Text="Recarregar Config" FontSize="12" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </Grid>
-        </Border>
+        <!-- CURRENT TIME -->
+        <!-- <Border Background="#1E293B" CornerRadius="6" Padding="12,6">
+            <TextBlock Text="{Binding CurrentTimeText}" 
+                        FontSize="13" 
+                        FontWeight="Bold" 
+                        Foreground="#38BDF8" 
+                        FontFamily="Monospace, Consolas, Courier New" />
+        </Border> -->
 
         <!-- MAIN CONTENT AREA -->
         <ScrollViewer Grid.Row="1" Margin="16" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
