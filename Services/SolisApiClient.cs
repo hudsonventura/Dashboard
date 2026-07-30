@@ -38,6 +38,22 @@ public sealed class SolisApiClient : IDisposable
         return detail ?? throw new InvalidOperationException("Resposta vazia em inverterDetail.");
     }
 
+    public async Task<List<InverterDayPoint>> GetInverterDayAsync(
+        string sn,
+        DateOnly day,
+        int timeZone,
+        CancellationToken cancellationToken = default)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            sn,
+            money = _settings.Currency,
+            time = day.ToString("yyyy-MM-dd"),
+            timeZone = timeZone.ToString()
+        });
+        return await PostAsync<List<InverterDayPoint>>("/v1/api/inverterDay", body, cancellationToken) ?? [];
+    }
+
     public async Task<string> ResolveInverterSnAsync(CancellationToken cancellationToken = default)
     {
         if (!string.IsNullOrWhiteSpace(_settings.InverterSn))

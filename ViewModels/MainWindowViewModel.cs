@@ -1,21 +1,36 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Dashboard.Models;
 using Dashboard.Services;
+using LiveChartsCore;
+using LiveChartsCore.Defaults;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using Microsoft.Extensions.Configuration;
+using SkiaSharp;
 
 namespace Dashboard.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private const double ChartStartHour = 6;
+    private const double ChartEndHour = 18;
+    private const double ChartMaxPowerWatts = 6000;
+    private const int SolarGenerationTargetKwh = 33;
+    private const int SolarGenerationDisplayMaxKwh = 40;
+    private static readonly SKColor SolarAccent = SKColor.Parse("#F59E0B");
+    private static readonly SKColor ChartGrid = SKColor.Parse("#334155");
     [ObservableProperty]
     private string _title = "Monitor de Câmeras RTSP & Dashboard";
 
@@ -66,10 +81,31 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _solisEnergyTodayText = "-";
 
     [ObservableProperty]
+    private string _solisGenerationProgressText = "Meta: 33 kWh (100%)";
+
+    [ObservableProperty]
     private string _solisPowerText = "-";
 
     [ObservableProperty]
     private string _solisTemperatureText = "-";
+
+    [ObservableProperty]
+    private string _solisPv1PowerText = "-";
+
+    [ObservableProperty]
+    private string _solisPv1DetailText = "-";
+
+    [ObservableProperty]
+    private string _solisPv2PowerText = "-";
+
+    [ObservableProperty]
+    private string _solisPv2DetailText = "-";
+
+    [ObservableProperty]
+    private string _solisAcCurrentText = "-";
+
+    [ObservableProperty]
+    private string _solisIgbtTemperatureText = "-";
 
     [ObservableProperty]
     private string _solisLastUpdatedText = "-";
@@ -79,6 +115,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _isSolisLoading;
+
+    [ObservableProperty]
+    private string _solisChartSummaryText = "Sem dados de geração para hoje";
+
+    [ObservableProperty]
+    private string _solisFirst6KwText = "—";
+
+    [ObservableProperty]
+    private string _solisLast6KwText = "—";
+
+    [ObservableProperty]
+    private string _solisLocalDateText = "-";
+
+    [ObservableProperty]
+    private string _solisLocalTimeText = "-";
 
     // WEATHER PANEL PROPERTIES (30% Right Field - Middle)
     [ObservableProperty]
@@ -151,6 +202,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private SolisSettings _solisSettings = new();
     private SolisApiClient? _solisClient;
     private string? _inverterSn;
+    private readonly ObservableCollection<ObservablePoint> _solarGenerationValues = new();
 
     public MainWindowViewModel()
     {
@@ -177,10 +229,61 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             Interval = TimeSpan.FromMinutes(5)
         };
-        _solisTimer.Tick += async (s, e) => await RefreshSolisAsync();
+        _solisTimer.Tick += async (s, e) =>
+        {
+            if (IsSolisRefreshWindow())
+                await RefreshSolisCoreAsync();
+        };
+
+        SolarChartSeries =
+        [
+            new LineSeries<ObservablePoint>
+            {
+                Name = "Potência",
+                Values = _solarGenerationValues,
+                Fill = new SolidColorPaint(SolarAccent.WithAlpha(72)),
+                Stroke = new SolidColorPaint(SolarAccent, 3),
+                GeometrySize = 0,
+                GeometryStroke = null,
+                GeometryFill = null,
+                LineSmoothness = 0.25
+            }
+        ];
+        SolarChartXAxes =
+        [
+            new Axis
+            {
+                MinLimit = ChartStartHour,
+                MaxLimit = ChartEndHour,
+                MinStep = 1,
+                Labeler = value => $"{value:0}h",
+                LabelsPaint = new SolidColorPaint(SKColor.Parse("#94A3B8")),
+                SeparatorsPaint = new SolidColorPaint(ChartGrid),
+                TextSize = 10
+            }
+        ];
+        SolarChartYAxes =
+        [
+            new Axis
+            {
+                MinLimit = 0,
+                MaxLimit = ChartMaxPowerWatts,
+                MinStep = 1000,
+                Labeler = value => value == 0 ? "0 W" : $"{value / 1000d:0} kW",
+                LabelsPaint = new SolidColorPaint(SKColor.Parse("#94A3B8")),
+                SeparatorsPaint = new SolidColorPaint(ChartGrid),
+                TextSize = 10
+            }
+        ];
+        ApplySolarGenerationProgress(0);
 
         LoadConfiguration();
     }
+
+    public ISeries[] SolarChartSeries { get; }
+    public Axis[] SolarChartXAxes { get; }
+    public Axis[] SolarChartYAxes { get; }
+    public ObservableCollection<SolarProgressSegment> SolarGenerationProgressSegments { get; } = new();
 
     private void OnClockTick(object? sender, EventArgs e)
     {
@@ -199,6 +302,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         UpdateSystemMetrics();
+        UpdateSolisClock();
     }
 
     private void UpdateSystemMetrics()
@@ -284,6 +388,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             IsCamerasEnabled = appConfig.Cameras.Enabled;
             _weatherSettings = appConfig.Weather;
             _solisSettings = appConfig.Solis;
+            UpdateSolisClock();
 
             // Load Solis details
             SolisApiUrlText = string.IsNullOrEmpty(appConfig.Solis.ApiUrl) ? "https://www.soliscloud.com:13333" : appConfig.Solis.ApiUrl;
@@ -307,7 +412,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             {
                 _solisClient = new SolisApiClient(_solisSettings);
                 _solisTimer.Start();
-                _ = RefreshSolisAsync();
+                _ = RefreshSolisCoreAsync(); // Uma consulta inicial, inclusive fora da janela de geração.
             }
 
             // Load Weather settings
@@ -424,7 +529,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    public async Task RefreshSolisAsync()
+    public Task RefreshSolisAsync() => RefreshSolisCoreAsync();
+
+    private async Task RefreshSolisCoreAsync()
     {
         if (_solisClient is null || IsSolisLoading)
             return;
@@ -436,7 +543,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             _inverterSn ??= await _solisClient.ResolveInverterSnAsync();
-            var detail = await _solisClient.GetInverterDetailAsync(_inverterSn);
+            var localNow = GetSolisLocalNow();
+            var detailTask = _solisClient.GetInverterDetailAsync(_inverterSn);
+            var dayTask = _solisClient.GetInverterDayAsync(
+                _inverterSn,
+                DateOnly.FromDateTime(localNow),
+                _solisSettings.TimeZone);
+            await Task.WhenAll(detailTask, dayTask);
+            var detail = await detailTask;
+            var dayPoints = await dayTask;
 
             SolisInverterSnText = _inverterSn;
             SolisInverterModelText = detail.ProductModel ?? detail.Model ?? SolisInverterModelText;
@@ -448,9 +563,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 _ => detail.State?.ToString() ?? "Sem estado"
             };
             SolisEnergyTodayText = FormatUnit(detail.EToday, detail.ETodayStr ?? "kWh");
+            ApplySolarGenerationProgress(detail.EToday);
             SolisPowerText = FormatUnit(detail.Pac, detail.PacStr ?? "W");
+            SolisAcCurrentText = FormatUnit(detail.IAc1, detail.IAc1Str ?? "A");
             SolisTemperatureText = FormatUnit(detail.InverterTemperature, detail.InverterTemperatureUnit ?? "°C");
+            SolisIgbtTemperatureText = ResolveIgbtTemperature(detail);
+            SolisPv1PowerText = FormatUnit(detail.Pow1, detail.Pow1Str ?? "W");
+            SolisPv1DetailText = $"{FormatUnit(detail.UPv1, detail.UPv1Str ?? "V")} · {FormatUnit(detail.IPv1, detail.IPv1Str ?? "A")}";
+            SolisPv2PowerText = FormatUnit(detail.Pow2, detail.Pow2Str ?? "W");
+            SolisPv2DetailText = $"{FormatUnit(detail.UPv2, detail.UPv2Str ?? "V")} · {FormatUnit(detail.IPv2, detail.IPv2Str ?? "A")}";
             SolisLastUpdatedText = detail.TimeStr ?? DateTime.Now.ToString("HH:mm:ss");
+            ApplySolarDayPoints(dayPoints);
         }
         catch (Exception ex)
         {
@@ -465,6 +588,103 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private static string FormatUnit(double? value, string unit) =>
         value is null ? "-" : $"{value.Value:0.##} {unit}";
+
+    private void ApplySolarGenerationProgress(double? energyToday)
+    {
+        var generatedKwh = Math.Max(0, energyToday ?? 0);
+        var targetPercent = generatedKwh / SolarGenerationTargetKwh * 100d;
+        SolisGenerationProgressText =
+            $"{generatedKwh:0.##} kWh · {targetPercent:0}% da meta de {SolarGenerationTargetKwh} kWh";
+
+        SolarGenerationProgressSegments.Clear();
+        for (var kwh = 1; kwh <= SolarGenerationDisplayMaxKwh; kwh++)
+        {
+            var isFilled = generatedKwh >= kwh;
+            var isAboveTarget = kwh > SolarGenerationTargetKwh;
+            SolarGenerationProgressSegments.Add(new SolarProgressSegment(
+                isFilled
+                    ? isAboveTarget ? "#F59E0B" : "#4ADE80"
+                    : "#334155",
+                kwh == SolarGenerationTargetKwh));
+        }
+    }
+
+    private void ApplySolarDayPoints(IEnumerable<InverterDayPoint> dayPoints)
+    {
+        var points = dayPoints
+            .Where(point => point.Pac is not null && TryParseHourDecimal(ExtractHour(point.TimeStr), out var hour) &&
+                            hour >= ChartStartHour && hour <= ChartEndHour)
+            .Select(point => new
+            {
+                Time = ExtractHour(point.TimeStr),
+                Hour = ParseHourDecimal(ExtractHour(point.TimeStr)),
+                PowerWatts = Math.Max(0, point.Pac!.Value)
+            })
+            .OrderBy(point => point.Hour)
+            .ToList();
+
+        _solarGenerationValues.Clear();
+        foreach (var point in points)
+            _solarGenerationValues.Add(new ObservablePoint(point.Hour, Math.Min(ChartMaxPowerWatts, point.PowerWatts)));
+
+        SolisChartSummaryText = points.Count == 0
+            ? "Sem dados de geração para hoje"
+            : $"Pico {points.Max(point => point.PowerWatts):0.#} W · {points.Count} pts · 06–18h";
+
+        var atOrAbove6Kw = points.Where(point => point.PowerWatts >= ChartMaxPowerWatts).ToList();
+        SolisFirst6KwText = atOrAbove6Kw.Count == 0 ? "—" : atOrAbove6Kw[0].Time;
+        SolisLast6KwText = atOrAbove6Kw.Count == 0 ? "—" : atOrAbove6Kw[^1].Time;
+    }
+
+    private bool IsSolisRefreshWindow()
+    {
+        var currentTime = GetSolisLocalNow().TimeOfDay;
+        return currentTime >= TimeSpan.FromHours(ChartStartHour) && currentTime < TimeSpan.FromHours(ChartEndHour);
+    }
+
+    private DateTime GetSolisLocalNow() => DateTime.UtcNow.AddHours(_solisSettings.TimeZone);
+
+    private void UpdateSolisClock()
+    {
+        var localNow = GetSolisLocalNow();
+        SolisLocalDateText = localNow.ToString("yyyy-MM-dd");
+        SolisLocalTimeText = localNow.ToString("HH:mm:ss");
+    }
+
+    private static string ResolveIgbtTemperature(InverterDetail detail)
+    {
+        if (detail.Temp is null)
+            return "N/D";
+
+        var value = detail.Temp.Value > 100 ? (detail.Temp.Value - 32d) * 5d / 9d : detail.Temp.Value;
+        var name = string.IsNullOrWhiteSpace(detail.TempName) ? "IGBT" : detail.TempName;
+        return $"{value:0.0} °C ({name})";
+    }
+
+    private static string ExtractHour(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var time = parts.Length > 1 ? parts[^1] : parts[0];
+        return time.Length >= 5 ? time[..5] : time;
+    }
+
+    private static bool TryParseHourDecimal(string value, out double hour)
+    {
+        hour = 0;
+        if (!TimeOnly.TryParse(value, out var time))
+            return false;
+
+        hour = time.Hour + time.Minute / 60d + time.Second / 3600d;
+        return true;
+    }
+
+    private static double ParseHourDecimal(string value)
+    {
+        return TryParseHourDecimal(value, out var hour) ? hour : 0;
+    }
 
     private void HandleCameraExpandRequested(CameraViewModel camera)
     {
@@ -513,4 +733,20 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         PrimaryCamera?.Dispose();
         SecondaryCamera?.Dispose();
     }
+}
+
+public sealed class SolarProgressSegment
+{
+    public SolarProgressSegment(string color, bool isTargetMarker)
+    {
+        Fill = new SolidColorBrush(Color.Parse(color));
+        Border = isTargetMarker
+            ? new SolidColorBrush(Color.Parse("#F59E0B"))
+            : Brushes.Transparent;
+        BorderThickness = isTargetMarker ? new Thickness(1.5) : new Thickness(0);
+    }
+
+    public IBrush Fill { get; }
+    public IBrush Border { get; }
+    public Thickness BorderThickness { get; }
 }
