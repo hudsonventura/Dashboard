@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -98,15 +99,36 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _sysOsText = "Linux x86_64";
 
+    [ObservableProperty]
+    private string _sysMemoryUsageText = "--";
+
+    [ObservableProperty]
+    private double _sysMemoryUsage;
+
+    [ObservableProperty]
+    private string _sysSwapUsageText = "--";
+
+    [ObservableProperty]
+    private double _sysSwapUsage;
+
+    [ObservableProperty]
+    private string _sysCpuTemperatureText = "N/D";
+
+    public ObservableCollection<CpuUsageViewModel> CpuCores { get; } = new();
+    public ObservableCollection<DiskUsageViewModel> SystemDisks { get; } = new();
+
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _weatherTimer;
     private readonly DateTime _startTime = DateTime.Now;
 
     private WeatherSettings _weatherSettings = new();
+    private readonly SystemMonitorService _systemMonitorService = new();
 
     public MainWindowViewModel()
     {
-        SysOsText = $"{RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture})";
+        SysOsText = RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+            ? "Linux"
+            : $"{RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture})";
 
         // Clock timer (updates time & system metrics every 1s)
         _clockTimer = new DispatcherTimer
@@ -141,7 +163,62 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             SysThreadsText = $"{process.Threads.Count} Threads";
         }
+
+        UpdateSystemMetrics();
     }
+
+    private void UpdateSystemMetrics()
+    {
+        try
+        {
+            SystemMetricsSnapshot snapshot = _systemMonitorService.GetSnapshot();
+            UpdateCpuCores(snapshot);
+
+            SysMemoryUsage = ToPercentage(snapshot.MemoryUsedBytes, snapshot.MemoryTotalBytes);
+            SysMemoryUsageText = FormatUsage(snapshot.MemoryUsedBytes, snapshot.MemoryTotalBytes);
+            SysSwapUsage = ToPercentage(snapshot.SwapUsedBytes, snapshot.SwapTotalBytes);
+            SysSwapUsageText = FormatUsage(snapshot.SwapUsedBytes, snapshot.SwapTotalBytes);
+            SysCpuTemperatureText = snapshot.CpuTemperatureCelsius is double temperature ? $"{temperature:F1} °C" : "N/D";
+
+            SystemDisks.Clear();
+            foreach (DiskUsage disk in snapshot.Disks)
+            {
+                SystemDisks.Add(new DiskUsageViewModel
+                {
+                    Name = string.IsNullOrWhiteSpace(disk.Name) ? disk.MountPoint : disk.Name,
+                    MountPoint = disk.MountPoint,
+                    Usage = ToPercentage(disk.UsedBytes, disk.TotalBytes),
+                    UsageText = FormatUsage(disk.UsedBytes, disk.TotalBytes)
+                });
+            }
+        }
+        catch
+        {
+            // Métricas do host não devem interromper o dashboard.
+        }
+    }
+
+    private void UpdateCpuCores(SystemMetricsSnapshot snapshot)
+    {
+        while (CpuCores.Count < snapshot.CpuUsagePercentages.Count)
+            CpuCores.Add(new CpuUsageViewModel($"CPU {CpuCores.Count}"));
+
+        while (CpuCores.Count > snapshot.CpuUsagePercentages.Count)
+            CpuCores.RemoveAt(CpuCores.Count - 1);
+
+        for (int index = 0; index < snapshot.CpuUsagePercentages.Count; index++)
+            CpuCores[index].Update(snapshot.CpuUsagePercentages[index]);
+    }
+
+    private static double ToPercentage(long used, long total) => total > 0 ? Math.Clamp(used * 100d / total, 0, 100) : 0;
+
+    private static string FormatUsage(long used, long total) => total > 0
+        ? $"{FormatBytes(used)} / {FormatBytes(total)} ({ToPercentage(used, total):F0}%)"
+        : "N/D";
+
+    private static string FormatBytes(long bytes) => bytes >= 1024L * 1024 * 1024
+        ? $"{bytes / (1024d * 1024 * 1024):F2} GiB"
+        : $"{bytes / (1024d * 1024):F0} MiB";
 
     [RelayCommand]
     public void LoadConfiguration()

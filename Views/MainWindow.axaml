@@ -270,42 +270,59 @@
                                 BorderThickness="1" 
                                 CornerRadius="10" 
                                 Padding="16">
-                            <StackPanel Spacing="10">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Border Width="26" Height="26" CornerRadius="6" Background="#7C3AED">
-                                        <TextBlock Text="🖥️" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock Text="MONITOR DO SISTEMA" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
+                            <StackPanel Spacing="9">
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <TextBlock Text="Sistema" FontSize="13" FontWeight="Bold" Foreground="#7DD3FC" />
+                                    <TextBlock Grid.Column="1" Text="{Binding SysOsText}" FontSize="10" Foreground="#7DD3FC" TextTrimming="CharacterEllipsis" MaxWidth="110" />
+                                </Grid>
+
+                                <TextBlock Text="Processadores" FontSize="10" Foreground="#94A3B8" />
+                                <ItemsControl ItemsSource="{Binding CpuCores}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:CpuUsageViewModel">
+                                            <Grid ColumnDefinitions="48, *, 42" Margin="0,2">
+                                                <TextBlock Text="{Binding Label}" FontSize="10" Foreground="#93C5FD" VerticalAlignment="Center" />
+                                                <ProgressBar Grid.Column="1" Value="{Binding Usage}" Maximum="100" Height="6" Background="#394250" Foreground="{Binding BarColor}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Text="{Binding UsageText}" FontSize="10" FontWeight="SemiBold" Foreground="#E0F2FE" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <StackPanel Spacing="3" Margin="0,4,0,0">
+                                    <Grid ColumnDefinitions="*, Auto">
+                                        <TextBlock Text="Memória" FontSize="10" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SysMemoryUsageText}" FontSize="10" FontWeight="SemiBold" Foreground="#E0F2FE" />
+                                    </Grid>
+                                    <ProgressBar Value="{Binding SysMemoryUsage}" Maximum="100" Height="6" Background="#394250" Foreground="#4ADE80" />
+                                    <Grid ColumnDefinitions="*, Auto" Margin="0,2,0,0">
+                                        <TextBlock Text="Swap" FontSize="10" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SysSwapUsageText}" FontSize="10" FontWeight="SemiBold" Foreground="#FB7185" />
+                                    </Grid>
+                                    <ProgressBar Value="{Binding SysSwapUsage}" Maximum="100" Height="6" Background="#394250" Foreground="#FB7185" />
                                 </StackPanel>
 
-                                <Grid RowDefinitions="Auto, Auto" ColumnDefinitions="*, *">
-                                    <Border Grid.Row="0" Grid.Column="0" Background="#1E293B" CornerRadius="6" Padding="10" Margin="0,0,4,4">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="Uso de Memória RAM" FontSize="10" Foreground="#94A3B8" />
-                                            <TextBlock Text="{Binding SysMemoryText}" FontSize="12" FontWeight="Bold" Foreground="#38BDF8" />
-                                        </StackPanel>
-                                    </Border>
+                                <TextBlock Text="Discos" FontSize="10" Foreground="#94A3B8" Margin="0,4,0,0" />
+                                <ItemsControl ItemsSource="{Binding SystemDisks}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:DiskUsageViewModel">
+                                            <Border Background="#1E293B" CornerRadius="6" Padding="8" Margin="0,2">
+                                                <StackPanel Spacing="3">
+                                                    <Grid ColumnDefinitions="*, Auto">
+                                                        <TextBlock Text="{Binding Name}" FontSize="10" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding UsageText}" FontSize="9" FontWeight="SemiBold" Foreground="#E0F2FE" />
+                                                    </Grid>
+                                                    <ProgressBar Value="{Binding Usage}" Maximum="100" Height="6" Background="#394250" Foreground="#4ADE80" />
+                                                    <TextBlock Text="{Binding MountPoint}" FontSize="9" Foreground="#93C5FD" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
-                                    <Border Grid.Row="0" Grid.Column="1" Background="#1E293B" CornerRadius="6" Padding="10" Margin="4,0,0,4">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="Uptime App" FontSize="10" Foreground="#94A3B8" />
-                                            <TextBlock Text="{Binding SysUptimeText}" FontSize="12" FontWeight="Bold" Foreground="#10B981" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Grid.Row="1" Grid.Column="0" Background="#1E293B" CornerRadius="6" Padding="10" Margin="0,4,4,0">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="Threads Ativas" FontSize="10" Foreground="#94A3B8" />
-                                            <TextBlock Text="{Binding SysThreadsText}" FontSize="12" FontWeight="Bold" Foreground="#F8FAFC" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Grid.Row="1" Grid.Column="1" Background="#1E293B" CornerRadius="6" Padding="10" Margin="4,4,0,0">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="Plataforma OS" FontSize="10" Foreground="#94A3B8" />
-                                            <TextBlock Text="{Binding SysOsText}" FontSize="10" FontWeight="Bold" Foreground="#F59E0B" TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
-                                    </Border>
+                                <Grid ColumnDefinitions="*, Auto" Margin="0,4,0,0">
+                                    <TextBlock Text="Temp. CPU" FontSize="10" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="1" Text="{Binding SysCpuTemperatureText}" FontSize="12" FontWeight="Bold" Foreground="#FBBF24" />
                                 </Grid>
                             </StackPanel>
                         </Border>
