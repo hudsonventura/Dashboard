@@ -665,12 +665,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private static string ResolveIgbtTemperature(InverterDetail detail)
     {
-        if (detail.Temp is null)
+        // O campo "temp" da Solis representa o teto do IGBT (por exemplo, 150 ℃),
+        // não a leitura atual. A leitura corrente vem em inverterTemperature.
+        if (detail.InverterTemperature is null)
             return "N/D";
 
-        var value = detail.Temp.Value > 100 ? (detail.Temp.Value - 32d) * 5d / 9d : detail.Temp.Value;
-        var name = string.IsNullOrWhiteSpace(detail.TempName) ? "IGBT" : detail.TempName;
-        return $"{value:0.0} °C ({name})";
+        return $"{detail.InverterTemperature.Value:0.0} {detail.InverterTemperatureUnit ?? "°C"}";
     }
 
     private static string ExtractHour(string? value)

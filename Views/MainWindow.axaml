@@ -56,7 +56,7 @@
                                         <Border Width="28" Height="28" CornerRadius="6" Background="#F59E0B">
                                             <TextBlock Text="⚡" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <TextBlock Text="SOLIS INVERSOR &amp; GERAÇÃO"
+                                        <TextBlock Text="Solar Data"
                                                    FontSize="14" 
                                                    FontWeight="Bold" 
                                                    Foreground="#F8FAFC" 
@@ -205,7 +205,7 @@
                                         <Border Width="26" Height="26" CornerRadius="6" Background="#0284C7">
                                             <TextBlock Text="🌤️" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <TextBlock Text="CLIMA &amp; PREVISÃO" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
+                                        <TextBlock Text="Weather" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -349,12 +349,11 @@
                                             <Border Background="#1E293B" CornerRadius="6" Padding="8" Margin="0,2">
                                                 <StackPanel Spacing="3">
                                                     <Grid ColumnDefinitions="*, Auto">
-                                                        <TextBlock Text="{Binding Name}" FontSize="10" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Name}" FontSize="9" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Grid.Column="1" Text="{Binding UsageText}" FontSize="9" FontWeight="SemiBold" Foreground="#E0F2FE" />
                                                     </Grid>
-                                                    <ProgressBar Value="{Binding Usage}" Maximum="100" Height="6" Background="#394250"
+                                                    <ProgressBar Value="{Binding Usage}" Maximum="100" Height="3" Background="#394250"
                                                                  Foreground="{Binding BarColor}" Classes.critical="{Binding IsCritical}" />
-                                                    <TextBlock Text="{Binding MountPoint}" FontSize="9" Foreground="#93C5FD" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>

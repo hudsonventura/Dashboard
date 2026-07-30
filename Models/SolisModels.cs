@@ -105,7 +105,7 @@ public sealed class InverterDetail
     public string? InverterTemperatureUnit { get; set; }
 
     [JsonPropertyName("temp")]
-    public double? Temp { get; set; }
+    public double? IgbtTemperatureLimit { get; set; }
 
     [JsonPropertyName("tempName")]
     public string? TempName { get; set; }

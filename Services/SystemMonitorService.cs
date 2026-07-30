@@ -102,6 +102,7 @@ public sealed class SystemMonitorService
 
     private static List<DiskUsage> ReadDisks() => DriveInfo.GetDrives()
         .Where(drive => drive.IsReady && drive.DriveType == DriveType.Fixed && drive.TotalSize > 0)
+        .Where(drive => !IsSysMount(drive.RootDirectory.FullName))
         .OrderBy(drive => drive.Name)
         .Take(3)
         .Select(drive => new DiskUsage
@@ -112,4 +113,8 @@ public sealed class SystemMonitorService
             TotalBytes = drive.TotalSize
         })
         .ToList();
+
+    private static bool IsSysMount(string mountPoint) =>
+        mountPoint.Equals("/sys", StringComparison.Ordinal) ||
+        mountPoint.StartsWith("/sys/", StringComparison.Ordinal);
 }
