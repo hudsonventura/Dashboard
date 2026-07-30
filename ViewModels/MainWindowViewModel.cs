@@ -56,6 +56,30 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _solisTimeZoneText = "GMT -3";
 
+    [ObservableProperty]
+    private string _solisInverterSnText = "-";
+
+    [ObservableProperty]
+    private string _solisStateText = "Não consultado";
+
+    [ObservableProperty]
+    private string _solisEnergyTodayText = "-";
+
+    [ObservableProperty]
+    private string _solisPowerText = "-";
+
+    [ObservableProperty]
+    private string _solisTemperatureText = "-";
+
+    [ObservableProperty]
+    private string _solisLastUpdatedText = "-";
+
+    [ObservableProperty]
+    private string _solisErrorMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isSolisLoading;
+
     // WEATHER PANEL PROPERTIES (30% Right Field - Middle)
     [ObservableProperty]
     private string _weatherProviderText = "OpenMeteo";
@@ -119,10 +143,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _weatherTimer;
+    private readonly DispatcherTimer _solisTimer;
     private readonly DateTime _startTime = DateTime.Now;
 
     private WeatherSettings _weatherSettings = new();
     private readonly SystemMonitorService _systemMonitorService = new();
+    private SolisSettings _solisSettings = new();
+    private SolisApiClient? _solisClient;
+    private string? _inverterSn;
 
     public MainWindowViewModel()
     {
@@ -144,6 +172,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             Interval = TimeSpan.FromMinutes(30)
         };
         _weatherTimer.Tick += async (s, e) => await FetchWeatherAsync();
+
+        _solisTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMinutes(5)
+        };
+        _solisTimer.Tick += async (s, e) => await RefreshSolisAsync();
 
         LoadConfiguration();
     }
@@ -249,6 +283,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             IsCamerasEnabled = appConfig.Cameras.Enabled;
             _weatherSettings = appConfig.Weather;
+            _solisSettings = appConfig.Solis;
 
             // Load Solis details
             SolisApiUrlText = string.IsNullOrEmpty(appConfig.Solis.ApiUrl) ? "https://www.soliscloud.com:13333" : appConfig.Solis.ApiUrl;
@@ -256,6 +291,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             SolisInverterModelText = string.IsNullOrEmpty(appConfig.Solis.InverterModel) ? "S6-GR1P6K-S" : appConfig.Solis.InverterModel;
             SolisCurrencyText = string.IsNullOrEmpty(appConfig.Solis.Currency) ? "BRL" : appConfig.Solis.Currency;
             SolisTimeZoneText = $"GMT {appConfig.Solis.TimeZone}";
+
+            _solisTimer.Stop();
+            _solisClient?.Dispose();
+            _solisClient = null;
+            _inverterSn = null;
+            SolisErrorMessage = string.Empty;
+            if (string.IsNullOrWhiteSpace(_solisSettings.ApiUrl) ||
+                string.IsNullOrWhiteSpace(_solisSettings.KeyId) ||
+                string.IsNullOrWhiteSpace(_solisSettings.KeySecret))
+            {
+                SolisStateText = "Configuração incompleta";
+            }
+            else
+            {
+                _solisClient = new SolisApiClient(_solisSettings);
+                _solisTimer.Start();
+                _ = RefreshSolisAsync();
+            }
 
             // Load Weather settings
             WeatherProviderText = string.IsNullOrEmpty(appConfig.Weather.Provider) ? "OpenMeteo" : appConfig.Weather.Provider;
@@ -370,6 +423,49 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    [RelayCommand]
+    public async Task RefreshSolisAsync()
+    {
+        if (_solisClient is null || IsSolisLoading)
+            return;
+
+        IsSolisLoading = true;
+        SolisErrorMessage = string.Empty;
+        SolisStateText = "Consultando SolisCloud...";
+
+        try
+        {
+            _inverterSn ??= await _solisClient.ResolveInverterSnAsync();
+            var detail = await _solisClient.GetInverterDetailAsync(_inverterSn);
+
+            SolisInverterSnText = _inverterSn;
+            SolisInverterModelText = detail.ProductModel ?? detail.Model ?? SolisInverterModelText;
+            SolisStateText = detail.State switch
+            {
+                1 => "Online",
+                2 => "Offline",
+                3 => "Alarme",
+                _ => detail.State?.ToString() ?? "Sem estado"
+            };
+            SolisEnergyTodayText = FormatUnit(detail.EToday, detail.ETodayStr ?? "kWh");
+            SolisPowerText = FormatUnit(detail.Pac, detail.PacStr ?? "W");
+            SolisTemperatureText = FormatUnit(detail.InverterTemperature, detail.InverterTemperatureUnit ?? "°C");
+            SolisLastUpdatedText = detail.TimeStr ?? DateTime.Now.ToString("HH:mm:ss");
+        }
+        catch (Exception ex)
+        {
+            SolisStateText = "Erro na consulta";
+            SolisErrorMessage = $"Solis: {ex.Message}";
+        }
+        finally
+        {
+            IsSolisLoading = false;
+        }
+    }
+
+    private static string FormatUnit(double? value, string unit) =>
+        value is null ? "-" : $"{value.Value:0.##} {unit}";
+
     private void HandleCameraExpandRequested(CameraViewModel camera)
     {
         if (camera.IsExpanded)
@@ -412,6 +508,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _clockTimer.Stop();
         _weatherTimer.Stop();
+        _solisTimer.Stop();
+        _solisClient?.Dispose();
         PrimaryCamera?.Dispose();
         SecondaryCamera?.Dispose();
     }
