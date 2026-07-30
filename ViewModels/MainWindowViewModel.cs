@@ -116,8 +116,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isSolisLoading;
 
-    [ObservableProperty]
-    private string _solisChartSummaryText = "Sem dados de geração para hoje";
+
 
     [ObservableProperty]
     private string _solisFirst6KwText = "—";
@@ -627,9 +626,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         foreach (var point in points)
             _solarGenerationValues.Add(new ObservablePoint(point.Hour, Math.Min(ChartMaxPowerWatts, point.PowerWatts)));
 
-        SolisChartSummaryText = points.Count == 0
-            ? "Sem dados de geração para hoje"
-            : $"Pico {points.Max(point => point.PowerWatts):0.#} W · {points.Count} pts · 06–18h";
 
         var atOrAbove6Kw = points.Where(point => point.PowerWatts >= ChartMaxPowerWatts).ToList();
         SolisFirst6KwText = atOrAbove6Kw.Count == 0 ? "—" : atOrAbove6Kw[0].Time;
