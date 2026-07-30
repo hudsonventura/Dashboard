@@ -8,7 +8,8 @@ public partial class CpuUsageViewModel : ObservableObject
 
     [ObservableProperty] private double _usage;
     [ObservableProperty] private string _usageText = "0.0%";
-    [ObservableProperty] private string _barColor = "#38BDF8";
+    [ObservableProperty] private string _barColor = UsageBarPalette.Blue;
+    [ObservableProperty] private bool _isCritical;
 
     public CpuUsageViewModel(string label) => Label = label;
 
@@ -16,7 +17,8 @@ public partial class CpuUsageViewModel : ObservableObject
     {
         Usage = usage;
         UsageText = $"{usage:F1}%";
-        BarColor = usage >= 90 ? "#BE123C" : "#38BDF8";
+        BarColor = UsageBarPalette.ForPercent(usage);
+        IsCritical = UsageBarPalette.IsCritical(usage);
     }
 }
 
@@ -26,4 +28,6 @@ public partial class DiskUsageViewModel : ObservableObject
     [ObservableProperty] private string _mountPoint = string.Empty;
     [ObservableProperty] private double _usage;
     [ObservableProperty] private string _usageText = "--";
+    [ObservableProperty] private string _barColor = UsageBarPalette.Blue;
+    [ObservableProperty] private bool _isCritical;
 }

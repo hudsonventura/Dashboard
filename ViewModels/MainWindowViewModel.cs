@@ -180,6 +180,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private double _sysMemoryUsage;
 
     [ObservableProperty]
+    private string _sysMemoryBarColor = UsageBarPalette.Blue;
+
+    [ObservableProperty]
+    private bool _isMemoryCritical;
+
+    [ObservableProperty]
     private string _sysSwapUsageText = "--";
 
     [ObservableProperty]
@@ -313,20 +319,30 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             SysMemoryUsage = ToPercentage(snapshot.MemoryUsedBytes, snapshot.MemoryTotalBytes);
             SysMemoryUsageText = FormatUsage(snapshot.MemoryUsedBytes, snapshot.MemoryTotalBytes);
+            SysMemoryBarColor = UsageBarPalette.ForPercent(SysMemoryUsage);
+            IsMemoryCritical = UsageBarPalette.IsCritical(SysMemoryUsage);
             SysSwapUsage = ToPercentage(snapshot.SwapUsedBytes, snapshot.SwapTotalBytes);
             SysSwapUsageText = FormatUsage(snapshot.SwapUsedBytes, snapshot.SwapTotalBytes);
             SysCpuTemperatureText = snapshot.CpuTemperatureCelsius is double temperature ? $"{temperature:F1} °C" : "N/D";
 
-            SystemDisks.Clear();
-            foreach (DiskUsage disk in snapshot.Disks)
+            while (SystemDisks.Count < snapshot.Disks.Count)
+                SystemDisks.Add(new DiskUsageViewModel());
+
+            while (SystemDisks.Count > snapshot.Disks.Count)
+                SystemDisks.RemoveAt(SystemDisks.Count - 1);
+
+            for (var index = 0; index < snapshot.Disks.Count; index++)
             {
-                SystemDisks.Add(new DiskUsageViewModel
-                {
-                    Name = string.IsNullOrWhiteSpace(disk.Name) ? disk.MountPoint : disk.Name,
-                    MountPoint = disk.MountPoint,
-                    Usage = ToPercentage(disk.UsedBytes, disk.TotalBytes),
-                    UsageText = FormatUsage(disk.UsedBytes, disk.TotalBytes)
-                });
+                DiskUsage disk = snapshot.Disks[index];
+                DiskUsageViewModel item = SystemDisks[index];
+                var usage = ToPercentage(disk.UsedBytes, disk.TotalBytes);
+
+                item.Name = string.IsNullOrWhiteSpace(disk.Name) ? disk.MountPoint : disk.Name;
+                item.MountPoint = disk.MountPoint;
+                item.Usage = usage;
+                item.UsageText = FormatUsage(disk.UsedBytes, disk.TotalBytes);
+                item.BarColor = UsageBarPalette.ForPercent(usage);
+                item.IsCritical = UsageBarPalette.IsCritical(usage);
             }
         }
         catch
