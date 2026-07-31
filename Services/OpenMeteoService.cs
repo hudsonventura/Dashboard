@@ -19,7 +19,7 @@ public class OpenMeteoService : IWeatherService
     {
         string encodedTimezone = Uri.EscapeDataString(string.IsNullOrWhiteSpace(timezone) ? "America/Cuiaba" : timezone);
         string url = string.Format(CultureInfo.InvariantCulture,
-            "https://api.open-meteo.com/v1/forecast?latitude={0}&longitude={1}&current=temperature_2m,relative_humidity_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone={2}",
+            "https://api.open-meteo.com/v1/forecast?latitude={0}&longitude={1}&current=temperature_2m,relative_humidity_2m,weather_code&hourly=precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone={2}",
             latitude, longitude, encodedTimezone);
 
         var response = await HttpClient.GetAsync(url, ct);
@@ -61,6 +61,12 @@ public class OpenMeteoService : IWeatherService
             var minTemps = dailyEl.GetProperty("temperature_2m_min");
             var codes = dailyEl.GetProperty("weather_code");
 
+            if (maxTemps.GetArrayLength() > 0 && minTemps.GetArrayLength() > 0)
+            {
+                weatherData.TodayTempMax = maxTemps[0].GetDouble();
+                weatherData.TodayTempMin = minTemps[0].GetDouble();
+            }
+
             int count = times.GetArrayLength();
             // Get next 4 days (start from index 1 for tomorrow, or index 1..4)
             int forecastCount = 0;
@@ -90,6 +96,25 @@ public class OpenMeteoService : IWeatherService
                     });
 
                     forecastCount++;
+                }
+            }
+        }
+
+        if (root.TryGetProperty("hourly", out var hourlyEl))
+        {
+            var times = hourlyEl.GetProperty("time");
+            var probabilities = hourlyEl.GetProperty("precipitation_probability");
+            DateTime periodStart = DateTime.Now;
+            DateTime periodEnd = periodStart.AddHours(24);
+
+            for (int i = 0; i < times.GetArrayLength() && i < probabilities.GetArrayLength(); i++)
+            {
+                if (DateTime.TryParse(times[i].GetString(), out DateTime forecastTime) &&
+                    forecastTime >= periodStart && forecastTime <= periodEnd)
+                {
+                    weatherData.MaxPrecipitationProbabilityNext24Hours = Math.Max(
+                        weatherData.MaxPrecipitationProbabilityNext24Hours,
+                        probabilities[i].GetInt32());
                 }
             }
         }

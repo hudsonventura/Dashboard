@@ -26,6 +26,9 @@ public class WeatherData
 {
     public string LocationName { get; set; } = "Cuiabá";
     public CurrentWeather Current { get; set; } = new();
+    public double TodayTempMax { get; set; }
+    public double TodayTempMin { get; set; }
+    public int MaxPrecipitationProbabilityNext24Hours { get; set; }
     public List<DailyForecast> Forecast { get; set; } = new();
     public DateTime LastUpdated { get; set; } = DateTime.Now;
     public string ProviderName { get; set; } = "OpenMeteo";

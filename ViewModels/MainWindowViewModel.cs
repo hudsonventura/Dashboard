@@ -145,6 +145,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _weatherCurrentHumidityText = "-- %";
 
     [ObservableProperty]
+    private string _weatherTodayMaxText = "-- °C";
+
+    [ObservableProperty]
+    private string _weatherTodayMinText = "-- °C";
+
+    [ObservableProperty]
+    private string _weatherPrecipitationProbabilityText = "-- %";
+
+    [ObservableProperty]
     private string _weatherConditionText = "Carregando...";
 
     [ObservableProperty]
@@ -503,6 +512,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             WeatherCurrentTempText = $"{data.Current.Temperature:F1} °C";
             WeatherCurrentHumidityText = $"{data.Current.Humidity}%";
+            WeatherTodayMaxText = $"{data.TodayTempMax:F0} °C";
+            WeatherTodayMinText = $"{data.TodayTempMin:F0} °C";
+            WeatherPrecipitationProbabilityText = $"{data.MaxPrecipitationProbabilityNext24Hours}%";
             WeatherConditionText = data.Current.ConditionText;
             WeatherIcon = data.Current.Icon;
             WeatherLastUpdatedText = $"{data.LastUpdated:HH:mm}";
@@ -530,6 +542,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     WeatherLocationText = fallbackData.LocationName;
                     WeatherCurrentTempText = $"{fallbackData.Current.Temperature:F1} °C";
                     WeatherCurrentHumidityText = $"{fallbackData.Current.Humidity}%";
+                    WeatherTodayMaxText = $"{fallbackData.TodayTempMax:F0} °C";
+                    WeatherTodayMinText = $"{fallbackData.TodayTempMin:F0} °C";
+                    WeatherPrecipitationProbabilityText = $"{fallbackData.MaxPrecipitationProbabilityNext24Hours}%";
                     WeatherConditionText = fallbackData.Current.ConditionText;
                     WeatherIcon = fallbackData.Current.Icon;
                     WeatherLastUpdatedText = $"{fallbackData.LastUpdated:HH:mm} (Fallback)";

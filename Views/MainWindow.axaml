@@ -53,8 +53,9 @@
                                 BorderThickness="1" 
                                 CornerRadius="10" 
                                 Padding="16"
+                                Height="{Binding PrimaryCamera.ViewHeight}"
                                 VerticalAlignment="Top">
-                            <Grid RowDefinitions="Auto, Auto, Auto">
+                            <Grid RowDefinitions="Auto, *, Auto">
                                 <!-- HEADER WEATHER -->
                                 <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,12">
                                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -81,7 +82,8 @@
 
                                 <!-- LINHA 1: TEMPERATURA E UMIDADE ATUAIS NA MESMA LINHA -->
                                 <Border Grid.Row="1" Background="#1E293B" CornerRadius="8" Padding="12,10" Margin="0,0,0,12">
-                                    <Grid ColumnDefinitions="Auto, *, Auto">
+                                    <Grid RowDefinitions="Auto, 8, Auto">
+                                    <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                             <Image Source="{Binding WeatherIcon}"
                                                    Width="{Binding WeatherPanelIconSize}"
@@ -119,6 +121,37 @@
                                                    FontSize="9" 
                                                    Foreground="#64748B" 
                                                    VerticalAlignment="Bottom" />
+                                    </Grid>
+
+                                    <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                                        <StackPanel Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center">
+                                            <TextBlock Text="↑" FontSize="16" FontWeight="Bold" Foreground="#F87171" />
+                                            <StackPanel Spacing="0">
+                                                <TextBlock Text="High" FontSize="9" Foreground="#94A3B8" />
+                                                <TextBlock Text="{Binding WeatherTodayMaxText}" FontSize="11" FontWeight="Bold" Foreground="#F87171" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center">
+                                            <TextBlock Text="↓" FontSize="16" FontWeight="Bold" Foreground="#38BDF8" />
+                                            <StackPanel Spacing="0">
+                                                <TextBlock Text="Low" FontSize="9" Foreground="#94A3B8" />
+                                                <TextBlock Text="{Binding WeatherTodayMinText}" FontSize="11" FontWeight="Bold" Foreground="#38BDF8" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center">
+                                            <Image Source="avares://Dashboard/Assets/Meteocons/png/rain.png"
+                                                   Width="18"
+                                                   Height="18"
+                                                   Stretch="Uniform"
+                                                   VerticalAlignment="Center" />
+                                            <StackPanel Spacing="0">
+                                                <TextBlock Text="Rain 24h" FontSize="9" Foreground="#94A3B8" />
+                                                <TextBlock Text="{Binding WeatherPrecipitationProbabilityText}" FontSize="11" FontWeight="Bold" Foreground="#60A5FA" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
                                     </Grid>
                                 </Border>
 

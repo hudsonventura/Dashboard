@@ -55,7 +55,9 @@ public class OpenWeatherService : IWeatherService
                 Humidity = currentHumidity,
                 ConditionText = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(condition),
                 Icon = MeteoconAssets.GetBitmap(MapOpenWeatherIcon(iconCode))
-            }
+            },
+            TodayTempMax = currentRoot.GetProperty("main").GetProperty("temp_max").GetDouble(),
+            TodayTempMin = currentRoot.GetProperty("main").GetProperty("temp_min").GetDouble()
         };
 
         // Fetch 5-day forecast
@@ -79,21 +81,35 @@ public class OpenWeatherService : IWeatherService
                 if (DateTime.TryParse(dtTxt, out DateTime dt))
                 {
                     string dateKey = dt.ToString("yyyy-MM-dd");
-                    if (dateKey == DateTime.Now.ToString("yyyy-MM-dd")) continue; // Skip today
-
                     double mainMax = item.GetProperty("main").GetProperty("temp_max").GetDouble();
                     double mainMin = item.GetProperty("main").GetProperty("temp_min").GetDouble();
                     string itemIcon = item.GetProperty("weather")[0].GetProperty("icon").GetString() ?? "01d";
                     string itemCond = item.GetProperty("weather")[0].GetProperty("description").GetString() ?? "Limpo";
 
-                    if (!dailyMap.ContainsKey(dateKey))
+                    if (dateKey == DateTime.Now.ToString("yyyy-MM-dd"))
                     {
-                        dailyMap[dateKey] = (mainMax, mainMin, itemIcon, itemCond);
+                        weatherData.TodayTempMax = Math.Max(weatherData.TodayTempMax, mainMax);
+                        weatherData.TodayTempMin = Math.Min(weatherData.TodayTempMin, mainMin);
                     }
                     else
                     {
-                        var cur = dailyMap[dateKey];
-                        dailyMap[dateKey] = (Math.Max(cur.Max, mainMax), Math.Min(cur.Min, mainMin), cur.Icon, cur.Cond);
+                        if (!dailyMap.ContainsKey(dateKey))
+                        {
+                            dailyMap[dateKey] = (mainMax, mainMin, itemIcon, itemCond);
+                        }
+                        else
+                        {
+                            var cur = dailyMap[dateKey];
+                            dailyMap[dateKey] = (Math.Max(cur.Max, mainMax), Math.Min(cur.Min, mainMin), cur.Icon, cur.Cond);
+                        }
+                    }
+
+                    if (dt >= DateTime.Now && dt <= DateTime.Now.AddHours(24) &&
+                        item.TryGetProperty("pop", out var precipitationProbability))
+                    {
+                        weatherData.MaxPrecipitationProbabilityNext24Hours = Math.Max(
+                            weatherData.MaxPrecipitationProbabilityNext24Hours,
+                            (int)Math.Round(precipitationProbability.GetDouble() * 100));
                     }
                 }
             }
