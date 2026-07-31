@@ -498,7 +498,7 @@
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
                     <Border Background="#1E293B" CornerRadius="4" Padding="8,4">
-                        <TextBlock Text="[Ctrl+Enter] Full Screen | [ESC / Right Click] Exit" 
+                        <TextBlock Text="[Alt+Enter] Full Screen | [ESC 1x] Exit Full Screen | [ESC 2x] Close App" 
                                    FontSize="11" 
                                    Foreground="#38BDF8" 
                                    FontWeight="SemiBold" />

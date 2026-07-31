@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -6,6 +7,9 @@ namespace Dashboard.Views;
 
 public partial class MainWindow : Window
 {
+    private DateTime _lastEscTime = DateTime.MinValue;
+    private static readonly TimeSpan DoubleEscThreshold = TimeSpan.FromMilliseconds(1000);
+
     public MainWindow()
     {
         InitializeComponent();
@@ -17,15 +21,26 @@ public partial class MainWindow : Window
 
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
     {
-        // Ctrl + Enter: Toggle Fullscreen
-        if (e.Key == Key.Enter && (e.KeyModifiers & KeyModifiers.Control) != 0)
+        // Alt + Enter: Toggle Fullscreen
+        if (e.Key == Key.Enter && (e.KeyModifiers & KeyModifiers.Alt) != 0)
         {
             ToggleFullScreen();
             e.Handled = true;
         }
-        // ESC: Exit Fullscreen
+        // ESC: 1x Exit Fullscreen, 2x Close App
         else if (e.Key == Key.Escape)
         {
+            DateTime now = DateTime.Now;
+            bool isDoubleEsc = (now - _lastEscTime) <= DoubleEscThreshold;
+            _lastEscTime = now;
+
+            if (isDoubleEsc)
+            {
+                Close();
+                e.Handled = true;
+                return;
+            }
+
             if (WindowState == WindowState.FullScreen)
             {
                 ExitFullScreen();
