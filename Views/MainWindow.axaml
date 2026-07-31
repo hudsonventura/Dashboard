@@ -516,26 +516,20 @@
             </Grid>
         </ScrollViewer>
 
-        <!-- FOOTER STATUS BAR -->
-        <!-- <Border Grid.Row="2" Background="#0E121B" BorderBrush="#1F2433" BorderThickness="0,1,0,0" Padding="16,8">
-            <Grid ColumnDefinitions="*, Auto">
-                <TextBlock Grid.Column="0" 
-                           Text="{Binding ConfigStatusMessage}" 
-                           FontSize="12" 
-                           Foreground="#94A3B8" 
-                           VerticalAlignment="Center" />
+        <!-- BURN-IN COLOR INVERSION OVERLAY -->
+        <Border Grid.RowSpan="3"
+                IsVisible="{Binding IsColorsInverted}"
+                Background="#EEFFFFFF"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                ZIndex="9998" />
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                    <Border Background="#1E293B" CornerRadius="4" Padding="8,4">
-                        <TextBlock Text="[Alt+Enter] Full Screen | [ESC 1x] Exit Full Screen | [ESC 2x] Close App" 
-                                   FontSize="11" 
-                                   Foreground="#38BDF8" 
-                                   FontWeight="SemiBold" />
-                    </Border>
-                    <TextBlock Text="Config: appsettings.json" FontSize="11" Foreground="#64748B" />
-                    <TextBlock Text="Framework: Avalonia .NET 10" FontSize="11" Foreground="#64748B" />
-                </StackPanel>
-            </Grid>
-        </Border> -->
+        <!-- BURN-IN FLASH OVERLAY (WHITE / BLACK) -->
+        <Border Grid.RowSpan="3"
+                IsVisible="{Binding IsBurnInOverlayVisible}"
+                Background="{Binding BurnInOverlayColor}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                ZIndex="9999" />
     </Grid>
 </Window>

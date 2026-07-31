@@ -189,6 +189,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private WeatherAlert? _primaryWeatherAlert;
 
+    [ObservableProperty]
+    private bool _isBurnInOverlayVisible;
+
+    [ObservableProperty]
+    private string _burnInOverlayColor = "#FFFFFF";
+
+    [ObservableProperty]
+    private bool _isColorsInverted;
+
     public double WeatherPanelIconSize => 50;
     public double WeatherHeaderIconSize => 18;
     public double WeatherForecastIconSize => 22;
@@ -232,17 +241,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<CpuUsageViewModel> CpuCores { get; } = new();
     public ObservableCollection<DiskUsageViewModel> SystemDisks { get; } = new();
 
-    private readonly DispatcherTimer _clockTimer;
-    private readonly DispatcherTimer _weatherTimer;
-    private readonly DispatcherTimer _solisTimer;
-    private readonly DateTime _startTime = DateTime.Now;
-
     private WeatherSettings _weatherSettings = new();
     private readonly SystemMonitorService _systemMonitorService = new();
     private SolisSettings _solisSettings = new();
     private SolisApiClient? _solisClient;
     private string? _inverterSn;
     private readonly ObservableCollection<ObservablePoint> _solarGenerationValues = new();
+
+    private readonly DispatcherTimer _clockTimer;
+    private readonly DispatcherTimer _weatherTimer;
+    private readonly DispatcherTimer _solisTimer;
+    private readonly DispatcherTimer _burnInTimer;
+    private readonly DateTime _startTime = DateTime.Now;
 
     public MainWindowViewModel()
     {
@@ -272,6 +282,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             if (IsSolisRefreshWindow())
                 await RefreshSolisCoreAsync();
         };
+
+        // Burn-in prevention timer (runs every 10 minutes)
+        _burnInTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMinutes(10)
+        };
+        _burnInTimer.Tick += async (s, e) => await TriggerBurnInProtectionAsync();
+        _burnInTimer.Start();
+
+        // Run anti-burn-in action immediately upon app startup
+        Dispatcher.UIThread.Post(async () => await TriggerBurnInProtectionAsync());
 
         SolarChartSeries =
         [
@@ -593,6 +614,27 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         HasWeatherAlerts = WeatherAlerts.Count > 0;
         PrimaryWeatherAlert = WeatherAlerts.FirstOrDefault();
+    }
+
+    [RelayCommand]
+    public async Task TriggerBurnInProtectionAsync()
+    {
+        // Phase 1: Invert app colors for 600ms
+        IsColorsInverted = true;
+        await Task.Delay(600);
+
+        // Phase 2: Flash solid White for 400ms
+        IsColorsInverted = false;
+        BurnInOverlayColor = "#FFFFFF";
+        IsBurnInOverlayVisible = true;
+        await Task.Delay(400);
+
+        // Phase 3: Flash solid Black for 400ms
+        BurnInOverlayColor = "#000000";
+        await Task.Delay(400);
+
+        // Phase 4: Restore normal display
+        IsBurnInOverlayVisible = false;
     }
 
     [RelayCommand]
