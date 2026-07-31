@@ -106,7 +106,7 @@ public sealed class SystemMonitorService
 
     private List<DiskUsage> ReadDisks() => DriveInfo.GetDrives()
         .Where(drive => drive.IsReady && drive.DriveType == DriveType.Fixed && drive.TotalSize > 0)
-        .Where(drive => !IsSysMount(drive.RootDirectory.FullName))
+        .Where(drive => !IsIgnoredMountPoint(drive.RootDirectory.FullName))
         .OrderBy(drive => drive.Name)
         .Select(drive =>
         {
@@ -276,7 +276,13 @@ public sealed class SystemMonitorService
         public static SmartDiskInfo Unavailable => new(null, "S.M.A.R.T. N/A", false);
     }
 
-    private static bool IsSysMount(string mountPoint) =>
-        mountPoint.Equals("/sys", StringComparison.Ordinal) ||
-        mountPoint.StartsWith("/sys/", StringComparison.Ordinal);
+    private static bool IsIgnoredMountPoint(string mountPoint) =>
+        mountPoint.Equals("/sys", StringComparison.OrdinalIgnoreCase) ||
+        mountPoint.StartsWith("/sys/", StringComparison.OrdinalIgnoreCase) ||
+        mountPoint.Equals("/snap", StringComparison.OrdinalIgnoreCase) ||
+        mountPoint.StartsWith("/snap/", StringComparison.OrdinalIgnoreCase) ||
+        mountPoint.StartsWith("/var/lib/snapd", StringComparison.OrdinalIgnoreCase) ||
+        mountPoint.StartsWith("/dev", StringComparison.OrdinalIgnoreCase) ||
+        mountPoint.StartsWith("/run", StringComparison.OrdinalIgnoreCase) ||
+        mountPoint.StartsWith("/proc", StringComparison.OrdinalIgnoreCase);
 }
