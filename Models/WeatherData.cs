@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Avalonia.Media.Imaging;
 
 namespace Dashboard.Models;
 
@@ -8,7 +9,7 @@ public class CurrentWeather
     public double Temperature { get; set; }
     public int Humidity { get; set; }
     public string ConditionText { get; set; } = "Ensolarado";
-    public string IconEmoji { get; set; } = "☀️";
+    public Bitmap Icon { get; set; } = MeteoconAssets.GetBitmap("clear-day");
 }
 
 public class DailyForecast
@@ -18,7 +19,7 @@ public class DailyForecast
     public double TempMax { get; set; }
     public double TempMin { get; set; }
     public string ConditionText { get; set; } = "Ensolarado";
-    public string IconEmoji { get; set; } = "☀️";
+    public Bitmap Icon { get; set; } = MeteoconAssets.GetBitmap("clear-day");
 }
 
 public class WeatherData

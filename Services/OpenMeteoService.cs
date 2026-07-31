@@ -42,13 +42,15 @@ public class OpenMeteoService : IWeatherService
             int humidity = currentEl.GetProperty("relative_humidity_2m").GetInt32();
             int code = currentEl.GetProperty("weather_code").GetInt32();
 
-            var (condText, iconEmoji) = MapWmoCode(code);
+            var (condText, iconName) = MapWmoCode(code);
+            var localHour = DateTime.Now.Hour;
+            var isNight = localHour < 6 || localHour >= 18;
             weatherData.Current = new CurrentWeather
             {
                 Temperature = temp,
                 Humidity = humidity,
                 ConditionText = condText,
-                IconEmoji = iconEmoji
+                Icon = MeteoconAssets.GetBitmap(MeteoconAssets.ResolveWeatherIconName(iconName, isNight))
             };
         }
 
@@ -72,7 +74,7 @@ public class OpenMeteoService : IWeatherService
                     double max = maxTemps[i].GetDouble();
                     double min = minTemps[i].GetDouble();
                     int code = codes[i].GetInt32();
-                    var (condText, iconEmoji) = MapWmoCode(code);
+                    var (condText, iconName) = MapWmoCode(code);
 
                     string dayOfWeek = culture.DateTimeFormat.GetAbbreviatedDayName(date.DayOfWeek);
                     dayOfWeek = char.ToUpper(dayOfWeek[0]) + dayOfWeek.Substring(1);
@@ -84,7 +86,7 @@ public class OpenMeteoService : IWeatherService
                         TempMax = max,
                         TempMin = min,
                         ConditionText = condText,
-                        IconEmoji = iconEmoji
+                        Icon = MeteoconAssets.GetBitmap(iconName)
                     });
 
                     forecastCount++;
@@ -95,21 +97,19 @@ public class OpenMeteoService : IWeatherService
         return weatherData;
     }
 
-    private static (string ConditionText, string IconEmoji) MapWmoCode(int code)
+    private static (string ConditionText, string IconName) MapWmoCode(int code)
     {
         return code switch
         {
-            0 => ("Ensolarado", "☀️"),
-            1 => ("Limpo", "🌤️"),
-            2 => ("Parcialmente Nublado", "⛅"),
-            3 => ("Encoberto", "☁️"),
-            45 or 48 => ("Nevoeiro", "🌫️"),
-            51 or 53 or 55 => ("Garoa", "🌧️"),
-            61 or 63 or 65 => ("Chuva", "🌧️"),
-            71 or 73 or 75 => ("Neve", "❄️"),
-            80 or 81 or 82 => ("Pancadas de Chuva", "🌦️"),
-            95 or 96 or 99 => ("Tempestade", "⛈️"),
-            _ => ("Limpo", "☀️")
+            0 => ("Ensolarado", "clear-day"),
+            1 or 2 => ("Parcialmente Nublado", "partly-cloudy-day"),
+            3 => ("Encoberto", "overcast"),
+            45 or 48 => ("Nevoeiro", "fog"),
+            51 or 53 or 55 => ("Garoa", "drizzle"),
+            61 or 63 or 65 or 80 or 81 or 82 => ("Chuva", "rain"),
+            71 or 73 or 75 => ("Neve", "snow"),
+            95 or 96 or 99 => ("Tempestade", "thunderstorms"),
+            _ => ("Limpo", "clear-day")
         };
     }
 }

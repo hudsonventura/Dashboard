@@ -54,7 +54,7 @@ public class OpenWeatherService : IWeatherService
                 Temperature = currentTemp,
                 Humidity = currentHumidity,
                 ConditionText = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(condition),
-                IconEmoji = MapOpenWeatherIcon(iconCode)
+                Icon = MeteoconAssets.GetBitmap(MapOpenWeatherIcon(iconCode))
             }
         };
 
@@ -115,7 +115,7 @@ public class OpenWeatherService : IWeatherService
                         TempMax = kvp.Value.Max,
                         TempMin = kvp.Value.Min,
                         ConditionText = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(kvp.Value.Cond),
-                        IconEmoji = MapOpenWeatherIcon(kvp.Value.Icon)
+                        Icon = MeteoconAssets.GetBitmap(MapOpenWeatherIcon(kvp.Value.Icon))
                     });
 
                     count++;
@@ -130,14 +130,17 @@ public class OpenWeatherService : IWeatherService
     {
         return iconCode switch
         {
-            "01d" or "01n" => "☀️",
-            "02d" or "02n" => "🌤️",
-            "03d" or "03n" or "04d" or "04n" => "☁️",
-            "09d" or "09n" or "10d" or "10n" => "🌧️",
-            "11d" or "11n" => "⛈️",
-            "13d" or "13n" => "❄️",
-            "50d" or "50n" => "🌫️",
-            _ => "☀️"
+            "01d" => "clear-day",
+            "01n" => "clear-night",
+            "02d" => "partly-cloudy-day",
+            "02n" => "partly-cloudy-night",
+            "03d" or "03n" or "04d" or "04n" => "overcast",
+            "09d" or "09n" => "drizzle",
+            "10d" or "10n" => "rain",
+            "11d" or "11n" => "thunderstorms",
+            "13d" or "13n" => "snow",
+            "50d" or "50n" => "fog",
+            _ => "clear-day"
         };
     }
 }

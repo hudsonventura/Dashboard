@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -147,7 +148,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _weatherConditionText = "Carregando...";
 
     [ObservableProperty]
-    private string _weatherIconEmoji = "☀️";
+    private Bitmap _weatherIcon = MeteoconAssets.GetBitmap("clear-day");
+
+    [ObservableProperty]
+    private Bitmap _solisTimeIcon = MeteoconAssets.GetBitmap("time-morning");
 
     [ObservableProperty]
     private string _weatherLastUpdatedText = "Atualizando...";
@@ -157,6 +161,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _isWeatherLoading;
+
+    public double WeatherPanelIconSize => 30;
+
+    public double WeatherHeaderIconSize => 18;
+
+    public double WeatherForecastIconSize => 22;
+
+    public double WeatherInfoIconSize => 24;
+
+    public double SolisTimeIconSize => 22;
 
     public ObservableCollection<DailyForecast> ForecastDays { get; } = new();
 
@@ -169,9 +183,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _sysThreadsText = "0 Threads";
-
-    [ObservableProperty]
-    private string _sysOsText = "Linux x86_64";
 
     [ObservableProperty]
     private string _sysMemoryUsageText = "--";
@@ -211,9 +222,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public MainWindowViewModel()
     {
-        SysOsText = RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-            ? "Linux"
-            : $"{RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture})";
+
 
         // Clock timer (updates time & system metrics every 1s)
         _clockTimer = new DispatcherTimer
@@ -495,7 +504,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             WeatherCurrentTempText = $"{data.Current.Temperature:F1} °C";
             WeatherCurrentHumidityText = $"{data.Current.Humidity}%";
             WeatherConditionText = data.Current.ConditionText;
-            WeatherIconEmoji = data.Current.IconEmoji;
+            WeatherIcon = data.Current.Icon;
             WeatherLastUpdatedText = $"Atualizado às {data.LastUpdated:HH:mm} (30 min auto)";
 
             ForecastDays.Clear();
@@ -522,7 +531,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     WeatherCurrentTempText = $"{fallbackData.Current.Temperature:F1} °C";
                     WeatherCurrentHumidityText = $"{fallbackData.Current.Humidity}%";
                     WeatherConditionText = fallbackData.Current.ConditionText;
-                    WeatherIconEmoji = fallbackData.Current.IconEmoji;
+                    WeatherIcon = fallbackData.Current.Icon;
                     WeatherLastUpdatedText = $"Atualizado às {fallbackData.LastUpdated:HH:mm} (Fallback)";
 
                     ForecastDays.Clear();
@@ -661,6 +670,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var localNow = GetSolisLocalNow();
         SolisLocalDateText = localNow.ToString("yyyy-MM-dd");
         SolisLocalTimeText = localNow.ToString("HH:mm:ss");
+        SolisTimeIcon = MeteoconAssets.GetBitmap(MeteoconAssets.ResolveTimeIconName(localNow.Hour));
     }
 
     private static string ResolveIgbtTemperature(InverterDetail detail)
