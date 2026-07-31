@@ -108,7 +108,6 @@ public sealed class SystemMonitorService
         .Where(drive => drive.IsReady && drive.DriveType == DriveType.Fixed && drive.TotalSize > 0)
         .Where(drive => !IsSysMount(drive.RootDirectory.FullName))
         .OrderBy(drive => drive.Name)
-        .Take(3)
         .Select(drive =>
         {
             SmartDiskInfo smart = GetSmartInfo(drive.RootDirectory.FullName);
