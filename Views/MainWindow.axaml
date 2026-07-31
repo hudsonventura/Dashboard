@@ -415,6 +415,11 @@
                                                     </Grid>
                                                     <ProgressBar Value="{Binding Usage}" Maximum="100" Height="3" Background="#394250"
                                                                  Foreground="{Binding BarColor}" Classes.critical="{Binding IsCritical}" />
+                                                    <Grid ColumnDefinitions="*, Auto">
+                                                        <TextBlock Text="{Binding TemperatureText}" FontSize="8" Foreground="#FBBF24" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding SmartStatusText}" FontSize="8" FontWeight="SemiBold"
+                                                                   Foreground="{Binding SmartStatusColor}" />
+                                                    </Grid>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>

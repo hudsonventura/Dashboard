@@ -361,6 +361,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 item.UsageText = FormatUsage(disk.UsedBytes, disk.TotalBytes);
                 item.BarColor = UsageBarPalette.ForPercent(usage);
                 item.IsCritical = UsageBarPalette.IsCritical(usage);
+                item.TemperatureText = disk.TemperatureCelsius is double diskTemperature ? $"Temp. {diskTemperature:F0} °C" : "Temp. N/D";
+                item.SmartStatusText = disk.SmartStatus;
+                item.SmartStatusColor = disk.HasSmartErrors ? "#FB7185" :
+                    disk.SmartStatus == "S.M.A.R.T. OK" ? "#4ADE80" : "#94A3B8";
             }
         }
         catch

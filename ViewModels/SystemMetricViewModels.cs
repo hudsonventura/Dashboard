@@ -30,4 +30,7 @@ public partial class DiskUsageViewModel : ObservableObject
     [ObservableProperty] private string _usageText = "--";
     [ObservableProperty] private string _barColor = UsageBarPalette.Blue;
     [ObservableProperty] private bool _isCritical;
+    [ObservableProperty] private string _temperatureText = "Temp. N/D";
+    [ObservableProperty] private string _smartStatusText = "S.M.A.R.T. indisponível";
+    [ObservableProperty] private string _smartStatusColor = "#94A3B8";
 }

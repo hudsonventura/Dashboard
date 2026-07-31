@@ -19,4 +19,7 @@ public sealed class DiskUsage
     public string MountPoint { get; init; } = string.Empty;
     public long UsedBytes { get; init; }
     public long TotalBytes { get; init; }
+    public double? TemperatureCelsius { get; init; }
+    public string SmartStatus { get; init; } = "S.M.A.R.T. indisponível";
+    public bool HasSmartErrors { get; init; }
 }
