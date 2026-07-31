@@ -220,7 +220,7 @@ public sealed class SystemMonitorService
 
             return new SmartDiskInfo(
                 FindTemperature(root),
-                passed ? "S.M.A.R.T. OK" : "S.M.A.R.T. FALHA",
+                passed ? "S.M.A.R.T. OK" : "S.M.A.R.T. FAILED",
                 !passed);
         }
         catch
@@ -274,7 +274,7 @@ public sealed class SystemMonitorService
 
     private readonly record struct SmartDiskInfo(double? TemperatureCelsius, string StatusText, bool HasErrors)
     {
-        public static SmartDiskInfo Unavailable => new(null, "S.M.A.R.T. indisponível", false);
+        public static SmartDiskInfo Unavailable => new(null, "S.M.A.R.T. N/A", false);
     }
 
     private static bool IsSysMount(string mountPoint) =>

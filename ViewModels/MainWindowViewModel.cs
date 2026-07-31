@@ -33,7 +33,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private static readonly SKColor SolarAccent = SKColor.Parse("#F59E0B");
     private static readonly SKColor ChartGrid = SKColor.Parse("#334155");
     [ObservableProperty]
-    private string _title = "Monitor de Câmeras RTSP & Dashboard";
+    private string _title = "RTSP Camera Monitor & Dashboard";
 
     [ObservableProperty]
     private CameraViewModel? _primaryCamera;
@@ -76,13 +76,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _solisInverterSnText = "-";
 
     [ObservableProperty]
-    private string _solisStateText = "Não consultado";
+    private string _solisStateText = "Not checked";
 
     [ObservableProperty]
     private string _solisEnergyTodayText = "-";
 
     [ObservableProperty]
-    private string _solisGenerationProgressText = "Meta: 33 kWh (100%)";
+    private string _solisGenerationProgressText = "Target: 33 kWh (100%)";
 
     [ObservableProperty]
     private string _solisPowerText = "-";
@@ -166,7 +166,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _weatherPrecipitationProbabilityText = "-- %";
 
     [ObservableProperty]
-    private string _weatherConditionText = "Carregando...";
+    private string _weatherConditionText = "Loading...";
 
     [ObservableProperty]
     private Bitmap _weatherIcon = MeteoconAssets.GetBitmap("clear-day");
@@ -175,7 +175,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private Bitmap _solisTimeIcon = MeteoconAssets.GetBitmap("time-morning");
 
     [ObservableProperty]
-    private string _weatherLastUpdatedText = "Atualizando...";
+    private string _weatherLastUpdatedText = "Updating...";
 
     [ObservableProperty]
     private string _weatherErrorMessage = string.Empty;
@@ -401,7 +401,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private static string FormatUsage(long used, long total) => total > 0
         ? $"{FormatBytes(used)} / {FormatBytes(total)} ({ToPercentage(used, total):F0}%)"
-        : "N/D";
+        : "N/A";
 
     private static string FormatBytes(long bytes) => bytes >= 1024L * 1024 * 1024
         ? $"{bytes / (1024d * 1024 * 1024):F2} GiB"
@@ -422,7 +422,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (!File.Exists(configPath))
             {
-                ConfigStatusMessage = "Arquivo appsettings.json não encontrado!";
+                ConfigStatusMessage = "appsettings.json file not found!";
                 return;
             }
 
@@ -455,7 +455,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 string.IsNullOrWhiteSpace(_solisSettings.KeyId) ||
                 string.IsNullOrWhiteSpace(_solisSettings.KeySecret))
             {
-                SolisStateText = "Configuração incompleta";
+                SolisStateText = "Incomplete configuration";
             }
             else
             {
@@ -475,7 +475,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             // Initialize Primary Camera (70% width left column, height 410px)
             var primaryItem = appConfig.Cameras.Primary;
             PrimaryCamera = new CameraViewModel(
-                string.IsNullOrEmpty(primaryItem.Name) ? "Câmera Principal" : primaryItem.Name,
+                string.IsNullOrEmpty(primaryItem.Name) ? "Primary Camera" : primaryItem.Name,
                 primaryItem.RtspUrl,
                 primaryItem.Height > 0 ? primaryItem.Height : 410);
 
@@ -484,13 +484,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             // Initialize Secondary Camera (30% width right column, height 180px)
             var secondaryItem = appConfig.Cameras.Secondary;
             SecondaryCamera = new CameraViewModel(
-                string.IsNullOrEmpty(secondaryItem.Name) ? "Câmera Secundária" : secondaryItem.Name,
+                string.IsNullOrEmpty(secondaryItem.Name) ? "Secondary Camera" : secondaryItem.Name,
                 secondaryItem.RtspUrl,
                 secondaryItem.Height > 0 ? secondaryItem.Height : 180);
 
             SecondaryCamera.OnToggleExpandRequested += HandleCameraExpandRequested;
 
-            ConfigStatusMessage = "Configurações carregadas com sucesso.";
+            ConfigStatusMessage = "Configuration loaded successfully.";
 
             if (IsCamerasEnabled)
             {
@@ -544,7 +544,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 catch { }
             }
 
-            WeatherErrorMessage = $"Erro ao obter clima: {ex.Message}";
+            WeatherErrorMessage = $"Error fetching weather: {ex.Message}";
         }
         finally
         {
@@ -593,7 +593,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         IsSolisLoading = true;
         SolisErrorMessage = string.Empty;
-        SolisStateText = "Consultando SolisCloud...";
+        SolisStateText = "Connecting to SolisCloud...";
 
         try
         {
@@ -614,8 +614,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             {
                 1 => "Online",
                 2 => "Offline",
-                3 => "Alarme",
-                _ => detail.State?.ToString() ?? "Sem estado"
+                3 => "Alarm",
+                _ => detail.State?.ToString() ?? "No status"
             };
             SolisEnergyTodayText = FormatUnit(detail.EToday, detail.ETodayStr ?? "kWh");
             ApplySolarGenerationProgress(detail.EToday);
@@ -632,7 +632,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            SolisStateText = "Erro na consulta";
+            SolisStateText = "Query error";
             SolisErrorMessage = $"Solis: {ex.Message}";
         }
         finally
@@ -649,7 +649,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var generatedKwh = Math.Max(0, energyToday ?? 0);
         var targetPercent = generatedKwh / SolarGenerationTargetKwh * 100d;
         SolisGenerationProgressText =
-            $"{generatedKwh:0.##} kWh · {targetPercent:0}% da meta de {SolarGenerationTargetKwh} kWh";
+            $"{generatedKwh:0.##} kWh · {targetPercent:0}% of target ({SolarGenerationTargetKwh} kWh)";
 
         SolarGenerationProgressSegments.Clear();
         for (var kwh = 1; kwh <= SolarGenerationDisplayMaxKwh; kwh++)
@@ -706,10 +706,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private static string ResolveIgbtTemperature(InverterDetail detail)
     {
-        // O campo "temp" da Solis representa o teto do IGBT (por exemplo, 150 ℃),
-        // não a leitura atual. A leitura corrente vem em inverterTemperature.
         if (detail.InverterTemperature is null)
-            return "N/D";
+            return "N/A";
 
         return $"{detail.InverterTemperature.Value:0.0} {detail.InverterTemperatureUnit ?? "°C"}";
     }

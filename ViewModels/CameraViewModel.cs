@@ -14,7 +14,7 @@ public partial class CameraViewModel : ObservableObject, IDisposable
     private CameraStreamService? _streamService;
 
     [ObservableProperty]
-    private string _cameraName = "Câmera RTSP";
+    private string _cameraName = "RTSP Camera";
 
     [ObservableProperty]
     private string _rtspUrl = string.Empty;
@@ -35,7 +35,7 @@ public partial class CameraViewModel : ObservableObject, IDisposable
     private WriteableBitmap? _currentFrame;
 
     [ObservableProperty]
-    private string _statusText = "Inativo";
+    private string _statusText = "Inactive";
 
     [ObservableProperty]
     private string _statusColor = "#6B7280";
@@ -92,7 +92,7 @@ public partial class CameraViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(RtspUrl))
         {
-            StatusText = "Sem URL RTSP";
+            StatusText = "No RTSP URL";
             StatusColor = "#EF4444";
             IsConnecting = false;
             IsLive = false;
@@ -133,32 +133,32 @@ public partial class CameraViewModel : ObservableObject, IDisposable
             switch (status)
             {
                 case StreamStatus.Streaming:
-                    StatusText = "AO VIVO";
+                    StatusText = "LIVE";
                     StatusColor = "#10B981"; // Emerald green
                     IsLive = true;
                     IsConnecting = false;
                     break;
                 case StreamStatus.Connecting:
-                    StatusText = "CONECTANDO...";
+                    StatusText = "CONNECTING...";
                     StatusColor = "#F59E0B"; // Amber
                     IsLive = false;
                     IsConnecting = true;
                     break;
                 case StreamStatus.Reconnecting:
-                    StatusText = "RECONECTANDO...";
+                    StatusText = "RECONNECTING...";
                     StatusColor = "#F97316"; // Orange
                     IsLive = false;
                     IsConnecting = true;
                     break;
                 case StreamStatus.Error:
-                    StatusText = "ERRO";
+                    StatusText = "ERROR";
                     StatusColor = "#EF4444"; // Red
                     IsLive = false;
                     IsConnecting = false;
                     break;
                 case StreamStatus.Stopped:
                 default:
-                    StatusText = "PAUSADO";
+                    StatusText = "PAUSED";
                     StatusColor = "#6B7280"; // Gray
                     IsLive = false;
                     IsConnecting = false;
@@ -182,7 +182,7 @@ public partial class CameraViewModel : ObservableObject, IDisposable
         {
             IsPlaying = false;
             StopStreamInternal();
-            StatusText = "PAUSADO";
+            StatusText = "PAUSED";
             StatusColor = "#6B7280";
             IsLive = false;
             IsConnecting = false;
@@ -222,14 +222,14 @@ public partial class CameraViewModel : ObservableObject, IDisposable
                 CurrentFrame.Save(stream);
 #pragma warning restore CS0618
             }
-            StatusText = "FOTO SALVA!";
+            StatusText = "SNAPSHOT SAVED!";
             
             await Task.Delay(2000);
-            if (IsLive) StatusText = "AO VIVO";
+            if (IsLive) StatusText = "LIVE";
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Falha ao salvar foto: {ex.Message}";
+            ErrorMessage = $"Failed to save snapshot: {ex.Message}";
         }
     }
 

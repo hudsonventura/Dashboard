@@ -59,13 +59,13 @@
                                    MaxWidth="400"
                                    IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
-                        <TextBlock Text="Decoder FFmpeg RTSP Ativo" 
+                        <TextBlock Text="FFmpeg RTSP Decoder Active" 
                                    FontSize="11" 
                                    Foreground="#64748B" 
                                    HorizontalAlignment="Center" />
 
                         <Button Command="{Binding ReconnectCommand}" 
-                                Content="Tentar Reconectar" 
+                                Content="Try Reconnecting" 
                                 Background="#2563EB" 
                                 Foreground="White" 
                                 CornerRadius="6" 

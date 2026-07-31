@@ -29,7 +29,7 @@ public class OpenWeatherService : IWeatherService
         }
 
         string currentUrl = string.Format(CultureInfo.InvariantCulture,
-            "https://api.openweathermap.org/data/2.5/weather?lat={0}&lon={1}&appid={2}&units=metric&lang=pt_br",
+            "https://api.openweathermap.org/data/2.5/weather?lat={0}&lon={1}&appid={2}&units=metric&lang=en",
             latitude, longitude, _apiKey);
 
         var currentResponse = await HttpClient.GetAsync(currentUrl, ct);
@@ -43,7 +43,7 @@ public class OpenWeatherService : IWeatherService
         int currentHumidity = currentRoot.GetProperty("main").GetProperty("humidity").GetInt32();
         double feelsLike = currentRoot.GetProperty("main").TryGetProperty("feels_like", out var feelsProp) ? feelsProp.GetDouble() : currentTemp;
         double windSpeed = currentRoot.TryGetProperty("wind", out var windObj) && windObj.TryGetProperty("speed", out var speedProp) ? speedProp.GetDouble() * 3.6 : 0;
-        string condition = currentRoot.GetProperty("weather")[0].GetProperty("description").GetString() ?? "Limpo";
+        string condition = currentRoot.GetProperty("weather")[0].GetProperty("description").GetString() ?? "Clear";
         string iconCode = currentRoot.GetProperty("weather")[0].GetProperty("icon").GetString() ?? "01d";
 
         var weatherData = new WeatherData
@@ -66,7 +66,7 @@ public class OpenWeatherService : IWeatherService
 
         // Fetch 5-day forecast
         string forecastUrl = string.Format(CultureInfo.InvariantCulture,
-            "https://api.openweathermap.org/data/2.5/forecast?lat={0}&lon={1}&appid={2}&units=metric&lang=pt_br",
+            "https://api.openweathermap.org/data/2.5/forecast?lat={0}&lon={1}&appid={2}&units=metric&lang=en",
             latitude, longitude, _apiKey);
 
         var forecastResponse = await HttpClient.GetAsync(forecastUrl, ct);
@@ -121,7 +121,7 @@ public class OpenWeatherService : IWeatherService
             int count = 0;
             foreach (var kvp in dailyMap)
             {
-                if (count >= 4) break;
+                if (count >= 3) break;
 
                 if (DateTime.TryParse(kvp.Key, out DateTime date))
                 {

@@ -72,11 +72,11 @@ public class OpenMeteoService : IWeatherService
             }
 
             int count = times.GetArrayLength();
-            // Get next 4 days (start from index 1 for tomorrow, or index 1..4)
+            // Get next 3 days (start from index 1 for tomorrow)
             int forecastCount = 0;
             var culture = CultureInfo.GetCultureInfo("en-US");
 
-            for (int i = 1; i < count && forecastCount < 4; i++)
+            for (int i = 1; i < count && forecastCount < 3; i++)
             {
                 string dateStr = times[i].GetString() ?? string.Empty;
                 if (DateTime.TryParse(dateStr, out DateTime date))
@@ -130,15 +130,15 @@ public class OpenMeteoService : IWeatherService
     {
         return code switch
         {
-            0 => ("Ensolarado", "clear-day"),
-            1 or 2 => ("Parcialmente Nublado", "partly-cloudy-day"),
-            3 => ("Encoberto", "overcast"),
-            45 or 48 => ("Nevoeiro", "fog"),
-            51 or 53 or 55 => ("Garoa", "drizzle"),
-            61 or 63 or 65 or 80 or 81 or 82 => ("Chuva", "rain"),
-            71 or 73 or 75 => ("Neve", "snow"),
-            95 or 96 or 99 => ("Tempestade", "thunderstorms"),
-            _ => ("Limpo", "clear-day")
+            0 => ("Sunny", "clear-day"),
+            1 or 2 => ("Partly Cloudy", "partly-cloudy-day"),
+            3 => ("Overcast", "overcast"),
+            45 or 48 => ("Fog", "fog"),
+            51 or 53 or 55 => ("Drizzle", "drizzle"),
+            61 or 63 or 65 or 80 or 81 or 82 => ("Rain", "rain"),
+            71 or 73 or 75 => ("Snow", "snow"),
+            95 or 96 or 99 => ("Thunderstorm", "thunderstorms"),
+            _ => ("Clear", "clear-day")
         };
     }
 }
