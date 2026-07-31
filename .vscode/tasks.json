@@ -7,7 +7,7 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/SolisDashboard.App/SolisDashboard.App.csproj",
+        "${workspaceFolder}/Dashboard.csproj",
         "-c",
         "Debug",
         "/property:GenerateFullPaths=true",
@@ -25,13 +25,17 @@
     {
       "label": "dotrush: Build App",
       "type": "dotrush.task",
+<<<<<<< HEAD
       "project": "${workspaceFolder}/SolisDashboard.App/SolisDashboard.App.csproj",
+=======
+      "project": "${workspaceFolder}/Dashboard.csproj",
+>>>>>>> e55fac8725518202bcf3f475cb6e801da975b26d
       "problemMatcher": "$msCompile"
     },
     {
       "label": "Solis Dashboard (Avalonia)",
       "type": "shell",
-      "command": "dotnet run --project SolisDashboard.App",
+      "command": "dotnet run --project Dashboard",
       "options": {
         "cwd": "${workspaceFolder}"
       },
