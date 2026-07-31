@@ -198,6 +198,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isColorsInverted;
 
+    [ObservableProperty]
+    private double _solarGreenProgressValue;
+
+    [ObservableProperty]
+    private double _solarTotalProgressValue;
+
+    [ObservableProperty]
+    private bool _isSolarProgressAnimated;
+
     public double WeatherPanelIconSize => 50;
     public double WeatherHeaderIconSize => 18;
     public double WeatherForecastIconSize => 22;
@@ -334,7 +343,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 TextSize = 10
             }
         ];
-        ApplySolarGenerationProgress(0);
+        ApplySolarGenerationProgress(0, 0, 0);
 
         LoadConfiguration();
     }
@@ -672,7 +681,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 _ => detail.State?.ToString() ?? "No status"
             };
             SolisEnergyTodayText = FormatUnit(detail.EToday, detail.ETodayStr ?? "kWh");
-            ApplySolarGenerationProgress(detail.EToday);
+            ApplySolarGenerationProgress(detail.EToday, detail.Pac, detail.State);
             SolisPowerText = FormatUnit(detail.Pac, detail.PacStr ?? "W");
             SolisAcCurrentText = FormatUnit(detail.IAc1, detail.IAc1Str ?? "A");
             SolisTemperatureText = FormatUnit(detail.InverterTemperature, detail.InverterTemperatureUnit ?? "°C");
@@ -688,6 +697,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             SolisStateText = "Query error";
             SolisErrorMessage = $"Solis: {ex.Message}";
+            IsSolarProgressAnimated = false;
         }
         finally
         {
@@ -698,24 +708,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private static string FormatUnit(double? value, string unit) =>
         value is null ? "-" : $"{value.Value:0.##} {unit}";
 
-    private void ApplySolarGenerationProgress(double? energyToday)
+    private void ApplySolarGenerationProgress(double? energyToday, double? currentPowerWatts = 0, int? inverterState = 0)
     {
         var generatedKwh = Math.Max(0, energyToday ?? 0);
         var targetPercent = generatedKwh / SolarGenerationTargetKwh * 100d;
         SolisGenerationProgressText =
-            $"{generatedKwh:0.##} kWh · {targetPercent:0}% of target ({SolarGenerationTargetKwh} kWh)";
+            $"{targetPercent:0}% of target ({SolarGenerationTargetKwh} kWh)";
 
-        SolarGenerationProgressSegments.Clear();
-        for (var kwh = 1; kwh <= SolarGenerationDisplayMaxKwh; kwh++)
-        {
-            var isFilled = generatedKwh >= kwh;
-            var isAboveTarget = kwh > SolarGenerationTargetKwh;
-            SolarGenerationProgressSegments.Add(new SolarProgressSegment(
-                isFilled
-                    ? isAboveTarget ? "#F59E0B" : "#4ADE80"
-                    : "#334155",
-                kwh == SolarGenerationTargetKwh));
-        }
+        SolarGreenProgressValue = Math.Min(SolarGenerationTargetKwh, generatedKwh);
+        SolarTotalProgressValue = Math.Min(SolarGenerationDisplayMaxKwh, generatedKwh);
+
+        bool isOnline = inverterState == 1;
+        double power = currentPowerWatts ?? 0;
+        IsSolarProgressAnimated = isOnline && power > 50;
     }
 
     private void ApplySolarDayPoints(IEnumerable<InverterDayPoint> dayPoints)

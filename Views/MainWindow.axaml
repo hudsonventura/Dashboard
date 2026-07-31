@@ -323,14 +323,16 @@
                                 <Grid Grid.Row="1" ColumnDefinitions="42*,58*" ColumnSpacing="6">
                                     <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4">
                                         <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,1">
-                                            <StackPanel Spacing="1">
-                                                <TextBlock Text="{Binding SolisInverterModelText}" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" />
+                                            <StackPanel HorizontalAlignment="Left" Spacing="0">
+                                                <TextBlock Text="Power" FontSize="10" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                                                <TextBlock Text="{Binding SolisPowerText}" FontSize="22" FontWeight="Bold" Foreground="#F59E0B" />
+                                                <!-- <TextBlock Text="{Binding SolisInverterModelText}" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" />
                                                 <TextBlock FontSize="10" Foreground="#94A3B8">
                                                     <Run Text="{Binding SolisInverterSnText}" />
                                                     <Run Text=" · " />
                                                     <Run Text="{Binding SolisStateText}" />
                                                 </TextBlock>
-                                                <TextBlock Text="{Binding SolisLastUpdatedText}" FontSize="9" Foreground="#64748B" />
+                                                <TextBlock Text="{Binding SolisLastUpdatedText}" FontSize="9" Foreground="#64748B" /> -->
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="0">
                                                 <TextBlock Text="Generation" FontSize="10" Foreground="#94A3B8" HorizontalAlignment="Center" />
@@ -343,26 +345,22 @@
                                                 <TextBlock Text="Daily Generation" FontSize="10" Foreground="#94A3B8" />
                                                 <TextBlock Grid.Column="1" Text="{Binding SolisGenerationProgressText}" FontSize="9" Foreground="#94A3B8" />
                                             </Grid>
-                                            <ItemsControl ItemsSource="{Binding SolarGenerationProgressSegments}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <UniformGrid Rows="1" Columns="40" />
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="vmprogress:SolarProgressSegment">
-                                                        <Border Height="15" Margin="0.5,0" CornerRadius="2"
-                                                                Background="{Binding Fill}"
-                                                                BorderBrush="{Binding Border}"
-                                                                BorderThickness="{Binding BorderThickness}" />
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <Grid ColumnDefinitions="33*,7*">
-                                                <TextBlock Text="100% · 33 kWh" FontSize="9" FontWeight="SemiBold"
-                                                           Foreground="#F59E0B" HorizontalAlignment="Right" />
-                                                <TextBlock Grid.Column="1" Text="40 kWh" FontSize="9" Foreground="#64748B"
-                                                           HorizontalAlignment="Right" />
+                                            <Grid Height="6" Margin="0,2">
+                                                <!-- BACKGROUND OVER-TARGET PROGRESS BAR (YELLOW) -->
+                                                <ProgressBar Value="{Binding SolarTotalProgressValue}" 
+                                                             Maximum="40" 
+                                                             Height="6" 
+                                                             Background="#394250" 
+                                                             Foreground="#F59E0B" 
+                                                             IsIndeterminate="{Binding IsSolarProgressAnimated}" />
+
+                                                <!-- FOREGROUND TARGET PROGRESS BAR (GREEN) -->
+                                                <ProgressBar Value="{Binding SolarGreenProgressValue}" 
+                                                             Maximum="40" 
+                                                             Height="6" 
+                                                             Background="Transparent" 
+                                                             Foreground="#4ADE80" 
+                                                             IsIndeterminate="{Binding IsSolarProgressAnimated}" />
                                             </Grid>
                                         </StackPanel>
 
@@ -395,12 +393,6 @@
                                                 <StackPanel Spacing="0.5">
                                                     <TextBlock Text="IGBT" FontSize="9" Foreground="#94A3B8" />
                                                     <TextBlock Text="{Binding SolisIgbtTemperatureText}" FontSize="11" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Grid.Column="1" Background="#1E293B" CornerRadius="7" Padding="4">
-                                                <StackPanel Spacing="0.5">
-                                                    <TextBlock Text="Inverter Temp" FontSize="9" Foreground="#94A3B8" />
-                                                    <TextBlock Text="{Binding SolisTemperatureText}" FontSize="11" FontWeight="Bold" Foreground="#F8FAFC" />
                                                 </StackPanel>
                                             </Border>
                                             <StackPanel Grid.Column="2" Spacing="0.5" VerticalAlignment="Center">
