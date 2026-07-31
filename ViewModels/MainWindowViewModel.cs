@@ -183,16 +183,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isWeatherLoading;
 
+    [ObservableProperty]
+    private bool _hasWeatherAlerts;
+
+    [ObservableProperty]
+    private WeatherAlert? _primaryWeatherAlert;
+
     public double WeatherPanelIconSize => 50;
-
     public double WeatherHeaderIconSize => 18;
-
     public double WeatherForecastIconSize => 22;
-
     public double WeatherInfoIconSize => 24;
-
     public double SolisTimeIconSize => 22;
 
+    public ObservableCollection<WeatherAlert> WeatherAlerts { get; } = new();
     public ObservableCollection<DailyForecast> ForecastDays { get; } = new();
 
     // SYSTEM MONITOR PROPERTIES (30% Right Field - Bottom)
@@ -277,7 +280,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 Name = "Potência",
                 Values = _solarGenerationValues,
                 Fill = new SolidColorPaint(SolarAccent.WithAlpha(72)),
-                Stroke = new SolidColorPaint(SolarAccent, 3),
+                Stroke = new SolidColorPaint(SolarAccent, 1f),
                 GeometrySize = 0,
                 GeometryStroke = null,
                 GeometryFill = null,
@@ -581,6 +584,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             ForecastDays.Add(day);
         }
+
+        WeatherAlerts.Clear();
+        foreach (var alert in data.Alerts)
+        {
+            WeatherAlerts.Add(alert);
+        }
+
+        HasWeatherAlerts = WeatherAlerts.Count > 0;
+        PrimaryWeatherAlert = WeatherAlerts.FirstOrDefault();
     }
 
     [RelayCommand]

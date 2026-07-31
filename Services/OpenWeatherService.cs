@@ -143,6 +143,7 @@ public class OpenWeatherService : IWeatherService
             }
         }
 
+        WeatherAlertEvaluator.EvaluateAlerts(weatherData);
         return weatherData;
     }
 

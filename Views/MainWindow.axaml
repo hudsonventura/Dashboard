@@ -55,7 +55,7 @@
                                     Padding="10"
                                     Height="{Binding PrimaryCamera.ViewHeight}"
                                     VerticalAlignment="Top">
-                                <Grid RowDefinitions="Auto, *, Auto, Auto">
+                                <Grid RowDefinitions="Auto, Auto, *, Auto, Auto">
                                     <!-- HEADER WEATHER -->
                                     <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,6">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -83,8 +83,37 @@
                                         </StackPanel>
                                     </Grid>
 
+                                    <!-- WEATHER ALERT BANNER (METEOCONS 2.1 ALERT ICON) -->
+                                    <Border Grid.Row="1" 
+                                            IsVisible="{Binding HasWeatherAlerts}"
+                                            Background="#381E1E" 
+                                            BorderBrush="#EF4444" 
+                                            BorderThickness="1" 
+                                            CornerRadius="6" 
+                                            Padding="6,4" 
+                                            Margin="0,0,0,6">
+                                        <Grid ColumnDefinitions="Auto, *">
+                                            <Image Grid.Column="0" 
+                                                   Source="{Binding PrimaryWeatherAlert.Icon}" 
+                                                   Width="22" Height="22" 
+                                                   Stretch="Uniform" 
+                                                   Margin="0,0,6,0" 
+                                                   VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding PrimaryWeatherAlert.Title}" 
+                                                           FontSize="9.5" 
+                                                           FontWeight="Bold" 
+                                                           Foreground="#FCA5A5" />
+                                                <TextBlock Text="{Binding PrimaryWeatherAlert.Message}" 
+                                                           FontSize="8.5" 
+                                                           Foreground="#FECACA" 
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
                                     <!-- HERO WEATHER CARD -->
-                                    <Border Grid.Row="1" Background="#1A2234" BorderBrush="#26334D" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,0,6">
+                                    <Border Grid.Row="2" Background="#1A2234" BorderBrush="#26334D" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,0,6">
                                         <Grid RowDefinitions="Auto, 6, Auto">
                                             <!-- TOP: LARGE ICON + FAHRENHEIT / CELSIUS TEMPS + CONDITION -->
                                             <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto">
@@ -171,7 +200,7 @@
                                     </Border>
 
                                     <!-- HIGH / LOW TODAY -->
-                                    <Grid Grid.Row="2" ColumnDefinitions="*, *" ColumnSpacing="5" Margin="0,0,0,6">
+                                    <Grid Grid.Row="3" ColumnDefinitions="*, *" ColumnSpacing="5" Margin="0,0,0,6">
                                         <Border Grid.Column="0" Background="#1E293B" CornerRadius="6" Padding="5,3">
                                             <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
                                                 <TextBlock Text="↑" FontSize="13" FontWeight="Bold" Foreground="#F87171" VerticalAlignment="Center" />
@@ -194,7 +223,7 @@
                                     </Grid>
 
                                     <!-- FORECAST 3 DIAS -->
-                                    <ItemsControl Grid.Row="3" ItemsSource="{Binding ForecastDays}">
+                                    <ItemsControl Grid.Row="4" ItemsSource="{Binding ForecastDays}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <UniformGrid Columns="3" />
