@@ -287,7 +287,7 @@
                                                         BorderThickness="1" 
                                                         CornerRadius="6" 
                                                         Padding="2" 
-                                                        Margin="2">
+                                                        Margin="1">
                                                     <StackPanel Spacing="3" HorizontalAlignment="Center">
                                                         
                                                         
@@ -298,11 +298,6 @@
                                                                HorizontalAlignment="Center" />
 
                                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
-                                                            <TextBlock Text="{Binding DayOfWeek}" 
-                                                                   FontSize="10" 
-                                                                   FontWeight="Bold" 
-                                                                   Foreground="#F8FAFC" 
-                                                                   HorizontalAlignment="Center" />
                                                             <TextBlock Text="{Binding TempMax, StringFormat='{}{0:F0}°'}" 
                                                                        FontSize="10" 
                                                                        FontWeight="Bold" 

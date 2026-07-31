@@ -29,6 +29,9 @@ public partial class CameraViewModel : ObservableObject, IDisposable
     private double? _viewHeight;
 
     [ObservableProperty]
+    private double? _viewWidth;
+
+    [ObservableProperty]
     private WriteableBitmap? _currentFrame;
 
     [ObservableProperty]
@@ -69,11 +72,20 @@ public partial class CameraViewModel : ObservableObject, IDisposable
         if (_targetWidth % 2 != 0) _targetWidth++;
 
         _viewHeight = _targetHeight;
+        _viewWidth = _targetWidth;
     }
 
     public void UpdateViewHeight(bool isDualView)
     {
-        ViewHeight = isDualView ? TargetHeight : null;
+        if (!isDualView)
+        {
+            ViewHeight = null;
+            ViewWidth = null;
+            return;
+        }
+
+        ViewHeight = TargetHeight;
+        UpdateViewWidthFromAspect(TargetWidth, TargetHeight);
     }
 
     public void StartStream()
@@ -101,6 +113,15 @@ public partial class CameraViewModel : ObservableObject, IDisposable
     private void HandleFrameReceived(WriteableBitmap bitmap)
     {
         CurrentFrame = bitmap;
+        UpdateViewWidthFromAspect(bitmap.PixelSize.Width, bitmap.PixelSize.Height);
+    }
+
+    private void UpdateViewWidthFromAspect(int width, int height)
+    {
+        if (ViewHeight is null || width <= 0 || height <= 0)
+            return;
+
+        ViewWidth = Math.Round(ViewHeight.Value * width / (double)height, 2);
     }
 
     private void HandleStatusChanged(StreamStatus status, string error)

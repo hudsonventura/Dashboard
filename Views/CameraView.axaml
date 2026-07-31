@@ -6,7 +6,10 @@
              mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="360"
              x:Class="Dashboard.Views.CameraView"
              x:DataType="vm:CameraViewModel"
-             Height="{Binding ViewHeight}">
+             Height="{Binding ViewHeight}"
+             Width="{Binding ViewWidth}"
+             HorizontalAlignment="Left"
+             VerticalAlignment="Top">
 
     <Border Background="#131722" 
             BorderBrush="#2A2E3D" 
