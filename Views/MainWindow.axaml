@@ -33,16 +33,16 @@
         </Border> -->
 
         <!-- MAIN CONTENT AREA -->
-        <ScrollViewer Grid.Row="1" Margin="16" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1" Margin="8" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <Grid>
                 <!-- DUAL VIEW: 70% ESQUERDA (CÂMERA PRINCIPAL + SOLIS) / 30% DIREITA (CÂMERA SECUNDÁRIA + WEATHER + MONITOR) -->
-                <Grid IsVisible="{Binding IsDualView}" ColumnDefinitions="7*, 16, 3*">
+                <Grid IsVisible="{Binding IsDualView}" ColumnDefinitions="7*, 8, 3*">
                     
                     <!-- COLUNA ESQUERDA (70% DE LARGURA) -->
-                    <StackPanel Grid.Column="0" Spacing="16">
+                    <StackPanel Grid.Column="0" Spacing="8">
 
                         <!-- TOPO: CÂMERA PRINCIPAL E WEATHER, DENTRO DOS 70% -->
-                        <Grid ColumnDefinitions="Auto, 16, *">
+                        <Grid ColumnDefinitions="Auto, 8, *">
                             <!-- A largura da câmera vem da altura configurada e da proporção do vídeo. -->
                             <views:CameraView Grid.Column="0" DataContext="{Binding PrimaryCamera}" />
 
@@ -52,13 +52,13 @@
                                 BorderBrush="#2A2E3D" 
                                 BorderThickness="1" 
                                 CornerRadius="10" 
-                                Padding="16"
+                                Padding="8"
                                 Height="{Binding PrimaryCamera.ViewHeight}"
                                 VerticalAlignment="Top">
                             <Grid RowDefinitions="Auto, *, Auto">
                                 <!-- HEADER WEATHER -->
-                                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,12">
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,6">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                         <Border Width="26" Height="26" CornerRadius="6" Background="#0284C7">
                                             <Image Source="{Binding WeatherIcon}"
                                                    Width="{Binding WeatherHeaderIconSize}"
@@ -70,36 +70,36 @@
                                         <TextBlock Text="Weather" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
                                     </StackPanel>
 
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <Border Background="#1E293B" CornerRadius="4" Padding="6,3">
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+                                        <Border Background="#1E293B" CornerRadius="4" Padding="3,1.5">
                                             <TextBlock Text="{Binding WeatherProviderText}" FontSize="10" FontWeight="Bold" Foreground="#10B981" />
                                         </Border>
-                                        <Button Command="{Binding FetchWeatherCommand}" Background="#1E293B" Foreground="#F8FAFC" CornerRadius="4" Padding="6,2" ToolTip.Tip="Atualizar Clima">
+                                        <Button Command="{Binding FetchWeatherCommand}" Background="#1E293B" Foreground="#F8FAFC" CornerRadius="4" Padding="3,1" ToolTip.Tip="Atualizar Clima">
                                             <TextBlock Text="🔄" FontSize="10" />
                                         </Button>
                                     </StackPanel>
                                 </Grid>
 
                                 <!-- LINHA 1: TEMPERATURA E UMIDADE ATUAIS NA MESMA LINHA -->
-                                <Border Grid.Row="1" Background="#1E293B" CornerRadius="8" Padding="12,10" Margin="0,0,0,12">
-                                    <Grid RowDefinitions="Auto, 8, Auto">
+                                <Border Grid.Row="1" Background="#1E293B" CornerRadius="8" Padding="6,5" Margin="0,0,0,6">
+                                    <Grid RowDefinitions="Auto, 4, Auto">
                                     <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto">
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                             <Image Source="{Binding WeatherIcon}"
                                                    Width="{Binding WeatherPanelIconSize}"
                                                    Height="{Binding WeatherPanelIconSize}"
                                                    Stretch="Uniform"
                                                    VerticalAlignment="Center" />
                                             <StackPanel VerticalAlignment="Center">
-                                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
                                                     <!-- TEMPERATURA -->
                                                     <TextBlock Text="{Binding WeatherCurrentTempText}" 
                                                                FontSize="18" 
                                                                FontWeight="Bold" 
                                                                Foreground="#F8FAFC" />
-                                                    <TextBlock Text="|" FontSize="16" Foreground="#475569" Margin="2,0" />
+                                                    <TextBlock Text="|" FontSize="16" Foreground="#475569" Margin="1,0" />
                                                     <!-- UMIDADE -->
-                                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                                                         <Image Source="avares://Dashboard/Assets/Meteocons/png/humidity.png"
                                                                Width="{Binding WeatherInfoIconSize}"
                                                                Height="{Binding WeatherInfoIconSize}"
@@ -123,8 +123,8 @@
                                                    VerticalAlignment="Bottom" />
                                     </Grid>
 
-                                    <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="6">
-                                        <StackPanel Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center">
+                                    <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="3">
+                                        <StackPanel Orientation="Horizontal" Spacing="1.5" HorizontalAlignment="Center">
                                             <TextBlock Text="↑" FontSize="16" FontWeight="Bold" Foreground="#F87171" />
                                             <StackPanel Spacing="0">
                                                 <TextBlock Text="High" FontSize="9" Foreground="#94A3B8" />
@@ -132,7 +132,7 @@
                                             </StackPanel>
                                         </StackPanel>
 
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center">
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="1.5" HorizontalAlignment="Center">
                                             <TextBlock Text="↓" FontSize="16" FontWeight="Bold" Foreground="#38BDF8" />
                                             <StackPanel Spacing="0">
                                                 <TextBlock Text="Low" FontSize="9" Foreground="#94A3B8" />
@@ -140,7 +140,7 @@
                                             </StackPanel>
                                         </StackPanel>
 
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center">
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="1.5" HorizontalAlignment="Center">
                                             <Image Source="avares://Dashboard/Assets/Meteocons/png/rain.png"
                                                    Width="18"
                                                    Height="18"
@@ -156,7 +156,7 @@
                                 </Border>
 
                                 <!-- LINHA 2: MÁXIMA E MÍNIMA PARA OS PRÓXIMOS 4 DIAS -->
-                                <StackPanel Grid.Row="2" Spacing="6">
+                                <StackPanel Grid.Row="2" Spacing="3">
                                     
                                     <ItemsControl ItemsSource="{Binding ForecastDays}">
                                         <ItemsControl.ItemsPanel>
@@ -170,9 +170,9 @@
                                                         BorderBrush="#263147" 
                                                         BorderThickness="1" 
                                                         CornerRadius="6" 
-                                                        Padding="2" 
-                                                        Margin="1">
-                                                    <StackPanel Spacing="3" HorizontalAlignment="Center">
+                                                        Padding="1"
+                                                        Margin="0.5">
+                                                    <StackPanel Spacing="1.5" HorizontalAlignment="Center">
                                                         <TextBlock Text="{Binding DayOfWeek}"
                                                                    FontSize="10"
                                                                    FontWeight="Bold"
@@ -184,7 +184,7 @@
                                                                Stretch="Uniform"
                                                                HorizontalAlignment="Center" />
 
-                                                        <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" Spacing="1" HorizontalAlignment="Center">
                                                             <TextBlock Text="{Binding TempMax, StringFormat='{}{0:F0}°'}" 
                                                                        FontSize="10" 
                                                                        FontWeight="Bold" 
@@ -210,10 +210,10 @@
                                 BorderBrush="#2A2E3D" 
                                 BorderThickness="1" 
                                 CornerRadius="10" 
-                                Padding="18">
-                            <Grid RowDefinitions="Auto, *, Auto" RowSpacing="10">
-                                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,14">
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                Padding="9">
+                            <Grid RowDefinitions="Auto, *, Auto" RowSpacing="5">
+                                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,7">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
 
 
                                         
@@ -228,14 +228,14 @@
                                                    VerticalAlignment="Center" />
                                     </StackPanel>
 
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3">
                                         <TextBlock Text="{Binding SolisStateText}" FontSize="11" FontWeight="Bold" Foreground="#10B981" VerticalAlignment="Center" />
                                         <Button Command="{Binding RefreshSolisCommand}" IsEnabled="{Binding !IsSolisLoading}"
-                                                Background="#1E293B" Foreground="#F8FAFC" CornerRadius="4" Padding="6,2"
+                                                Background="#1E293B" Foreground="#F8FAFC" CornerRadius="4" Padding="3,1"
                                                 ToolTip.Tip="Atualizar dados do Solis">
                                             <TextBlock Text="🔄" FontSize="10" />
                                         </Button>
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <StackPanel Orientation="Horizontal" Spacing="3">
                                             <Image Source="{Binding SolisTimeIcon}"
                                                    Width="{Binding SolisTimeIconSize}"
                                                    Height="{Binding SolisTimeIconSize}"
@@ -247,10 +247,10 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <Grid Grid.Row="1" ColumnDefinitions="42*,58*" ColumnSpacing="12">
-                                    <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
-                                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
-                                            <StackPanel Spacing="2">
+                                <Grid Grid.Row="1" ColumnDefinitions="42*,58*" ColumnSpacing="6">
+                                    <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4">
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,1">
+                                            <StackPanel Spacing="1">
                                                 <TextBlock Text="{Binding SolisInverterModelText}" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" />
                                                 <TextBlock FontSize="10" Foreground="#94A3B8">
                                                     <Run Text="{Binding SolisInverterSnText}" />
@@ -265,7 +265,7 @@
                                             </StackPanel>
                                         </Grid>
 
-                                        <StackPanel Grid.Row="1" Spacing="4">
+                                        <StackPanel Grid.Row="1" Spacing="2">
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <TextBlock Text="Geração diária" FontSize="10" Foreground="#94A3B8" />
                                                 <TextBlock Grid.Column="1" Text="{Binding SolisGenerationProgressText}" FontSize="9" Foreground="#94A3B8" />
@@ -278,7 +278,7 @@
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vmprogress:SolarProgressSegment">
-                                                        <Border Height="15" Margin="1,0" CornerRadius="2"
+                                                        <Border Height="15" Margin="0.5,0" CornerRadius="2"
                                                                 Background="{Binding Fill}"
                                                                 BorderBrush="{Binding Border}"
                                                                 BorderThickness="{Binding BorderThickness}" />
@@ -293,23 +293,23 @@
                                             </Grid>
                                         </StackPanel>
 
-                                        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="6">
-                                            <Border Background="#1E293B" CornerRadius="7" Padding="8">
-                                                <StackPanel Spacing="2">
+                                        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="3">
+                                            <Border Background="#1E293B" CornerRadius="7" Padding="4">
+                                                <StackPanel Spacing="1">
                                                     <TextBlock Text="PV1" FontSize="10" Foreground="#94A3B8" />
                                                     <TextBlock Text="{Binding SolisPv1PowerText}" FontSize="14" FontWeight="Bold" Foreground="#F59E0B" />
                                                     <TextBlock Text="{Binding SolisPv1DetailText}" FontSize="9" Foreground="#94A3B8" TextWrapping="Wrap" />
                                                 </StackPanel>
                                             </Border>
-                                            <Border Grid.Column="1" Background="#1E293B" CornerRadius="7" Padding="8">
-                                                <StackPanel Spacing="2">
+                                            <Border Grid.Column="1" Background="#1E293B" CornerRadius="7" Padding="4">
+                                                <StackPanel Spacing="1">
                                                     <TextBlock Text="PV2" FontSize="10" Foreground="#94A3B8" />
                                                     <TextBlock Text="{Binding SolisPv2PowerText}" FontSize="14" FontWeight="Bold" Foreground="#F59E0B" />
                                                     <TextBlock Text="{Binding SolisPv2DetailText}" FontSize="9" Foreground="#94A3B8" TextWrapping="Wrap" />
                                                 </StackPanel>
                                             </Border>
-                                            <Border Grid.Column="2" Background="#1E293B" CornerRadius="7" Padding="8">
-                                                <StackPanel Spacing="2">
+                                            <Border Grid.Column="2" Background="#1E293B" CornerRadius="7" Padding="4">
+                                                <StackPanel Spacing="1">
                                                     <TextBlock Text="AC Potência" FontSize="10" Foreground="#94A3B8" />
                                                     <TextBlock Text="{Binding SolisPowerText}" FontSize="14" FontWeight="Bold" Foreground="#F59E0B" />
                                                     <TextBlock Text="{Binding SolisAcCurrentText}" FontSize="9" Foreground="#94A3B8" />
@@ -317,24 +317,24 @@
                                             </Border>
                                         </Grid>
 
-                                        <Grid Grid.Row="3" ColumnDefinitions="*,*,*,*" ColumnSpacing="6">
-                                            <Border Background="#1E293B" CornerRadius="7" Padding="8">
-                                                <StackPanel Spacing="1">
+                                        <Grid Grid.Row="3" ColumnDefinitions="*,*,*,*" ColumnSpacing="3">
+                                            <Border Background="#1E293B" CornerRadius="7" Padding="4">
+                                                <StackPanel Spacing="0.5">
                                                     <TextBlock Text="IGBT" FontSize="9" Foreground="#94A3B8" />
                                                     <TextBlock Text="{Binding SolisIgbtTemperatureText}" FontSize="11" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
                                             </Border>
-                                            <Border Grid.Column="1" Background="#1E293B" CornerRadius="7" Padding="8">
-                                                <StackPanel Spacing="1">
+                                            <Border Grid.Column="1" Background="#1E293B" CornerRadius="7" Padding="4">
+                                                <StackPanel Spacing="0.5">
                                                     <TextBlock Text="Temp. inversor" FontSize="9" Foreground="#94A3B8" />
                                                     <TextBlock Text="{Binding SolisTemperatureText}" FontSize="11" FontWeight="Bold" Foreground="#F8FAFC" />
                                                 </StackPanel>
                                             </Border>
-                                            <StackPanel Grid.Column="2" Spacing="1" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="2" Spacing="0.5" VerticalAlignment="Center">
                                                 <TextBlock Text="1º ≥ 6 kW" FontSize="9" Foreground="#94A3B8" />
                                                 <TextBlock Text="{Binding SolisFirst6KwText}" FontSize="14" FontWeight="Bold" Foreground="#F59E0B" />
                                             </StackPanel>
-                                            <StackPanel Grid.Column="3" Spacing="1" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="3" Spacing="0.5" VerticalAlignment="Center">
                                                 <TextBlock Text="Último ≥ 6 kW" FontSize="9" Foreground="#94A3B8" />
                                                 <TextBlock Text="{Binding SolisLast6KwText}" FontSize="14" FontWeight="Bold" Foreground="#F59E0B" />
                                             </StackPanel>
@@ -357,7 +357,7 @@
                     </StackPanel>
 
                     <!-- COLUNA DIREITA (30% DE LARGURA) -->
-                    <StackPanel Grid.Column="2" Spacing="16">
+                    <StackPanel Grid.Column="2" Spacing="8">
                         
                         <!-- CÂMERA SECUNDÁRIA (30% LARGURA - HEIGHT 180px) -->
                         <views:CameraView DataContext="{Binding SecondaryCamera}" />
@@ -369,8 +369,8 @@
                                 BorderBrush="#2A2E3D" 
                                 BorderThickness="1" 
                                 CornerRadius="10" 
-                                Padding="16">
-                            <StackPanel Spacing="9">
+                                Padding="8">
+                            <StackPanel Spacing="4.5">
                                 <Grid ColumnDefinitions="*, Auto">
                                     <TextBlock Text="CPU" FontSize="13" FontWeight="Bold" Foreground="#7DD3FC" />
                                     <TextBlock Grid.Column="1" Text="{Binding SysCpuTemperatureText}" FontSize="12" FontWeight="Bold" Foreground="#FBBF24" />
@@ -379,7 +379,7 @@
                                 <ItemsControl ItemsSource="{Binding CpuCores}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:CpuUsageViewModel">
-                                            <Grid ColumnDefinitions="38, *, 42" Margin="0,1">
+                                            <Grid ColumnDefinitions="38, *, 42" Margin="0,0.5">
                                                 <TextBlock Text="{Binding Label}" FontSize="10" Foreground="#93C5FD" VerticalAlignment="Center" />
                                                 <ProgressBar Grid.Column="1" Value="{Binding Usage}" Maximum="100" Height="3" Background="#394250"
                                                              Foreground="{Binding BarColor}" Classes.critical="{Binding IsCritical}" VerticalAlignment="Center" />
@@ -389,26 +389,26 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <StackPanel Spacing="3" Margin="0,4,0,0">
+                                <StackPanel Spacing="1.5" Margin="0,2,0,0">
                                     <Grid ColumnDefinitions="*, Auto">
                                         <TextBlock Text="Memória" FontSize="10" Foreground="#94A3B8" />
                                         <TextBlock Grid.Column="1" Text="{Binding SysMemoryUsageText}" FontSize="10" FontWeight="SemiBold" Foreground="#E0F2FE" />
                                     </Grid>
                                     <ProgressBar Value="{Binding SysMemoryUsage}" Maximum="100" Height="6" Background="#394250"
                                                  Foreground="{Binding SysMemoryBarColor}" Classes.critical="{Binding IsMemoryCritical}" />
-                                    <Grid ColumnDefinitions="*, Auto" Margin="0,2,0,0">
+                                    <Grid ColumnDefinitions="*, Auto" Margin="0,1,0,0">
                                         <TextBlock Text="Swap" FontSize="10" Foreground="#94A3B8" />
                                         <TextBlock Grid.Column="1" Text="{Binding SysSwapUsageText}" FontSize="10" FontWeight="SemiBold" Foreground="#FB7185" />
                                     </Grid>
                                     <ProgressBar Value="{Binding SysSwapUsage}" Maximum="100" Height="6" Background="#394250" Foreground="#FB7185" />
                                 </StackPanel>
 
-                                <TextBlock Text="Discos" FontSize="10" Foreground="#94A3B8" Margin="0,4,0,0" />
+                                <TextBlock Text="Discos" FontSize="10" Foreground="#94A3B8" Margin="0,2,0,0" />
                                 <ItemsControl ItemsSource="{Binding SystemDisks}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:DiskUsageViewModel">
-                                            <Border Background="#1E293B" CornerRadius="6" Padding="8" Margin="0,2">
-                                                <StackPanel Spacing="3">
+                                            <Border Background="#1E293B" CornerRadius="6" Padding="4" Margin="0,1">
+                                                <StackPanel Spacing="1.5">
                                                     <Grid ColumnDefinitions="*, Auto">
                                                         <TextBlock Text="{Binding Name}" FontSize="9" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Grid.Column="1" Text="{Binding UsageText}" FontSize="9" FontWeight="SemiBold" Foreground="#E0F2FE" />

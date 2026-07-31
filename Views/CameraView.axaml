@@ -23,7 +23,7 @@
             <!-- VIDEO CONTAINER -->
             <Grid Grid.Row="1" Background="#0A0D14">
 
-                <Border Background="#1E293B" CornerRadius="4" Padding="8,3">
+                <Border Background="#1E293B" CornerRadius="4" Padding="4,1.5">
                             <TextBlock Text="{Binding StatusText}" 
                                        FontSize="11" 
                                        FontWeight="Bold" 
@@ -39,7 +39,7 @@
 
                 <!-- CONNECTING / PAUSED / ERROR PLACEHOLDER -->
                 <Border IsVisible="{Binding !IsLive}" Background="#0D111A">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
                         <Border Width="56" Height="56" CornerRadius="28" Background="#1E293B" HorizontalAlignment="Center">
                             <PathIcon Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6Z" 
                                       Foreground="#64748B" Width="28" Height="28" />
@@ -69,8 +69,8 @@
                                 Background="#2563EB" 
                                 Foreground="White" 
                                 CornerRadius="6" 
-                                Padding="12,6" 
-                                Margin="0,8,0,0"
+                                Padding="6,3"
+                                Margin="0,4,0,0"
                                 HorizontalAlignment="Center" />
                     </StackPanel>
                 </Border>
