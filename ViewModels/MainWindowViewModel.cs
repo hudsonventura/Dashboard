@@ -142,6 +142,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _weatherCurrentTempText = "-- °C";
 
     [ObservableProperty]
+    private string _weatherCurrentTempFahrenheitText = "-- °F";
+
+    [ObservableProperty]
+    private string _weatherCurrentTempCelsiusText = "(-- °C)";
+
+    [ObservableProperty]
+    private string _weatherFeelsLikeText = "-- °F (-- °C)";
+
+    [ObservableProperty]
+    private string _weatherWindSpeedText = "-- km/h";
+
+    [ObservableProperty]
     private string _weatherCurrentHumidityText = "-- %";
 
     [ObservableProperty]
@@ -171,7 +183,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isWeatherLoading;
 
-    public double WeatherPanelIconSize => 30;
+    public double WeatherPanelIconSize => 50;
 
     public double WeatherHeaderIconSize => 18;
 
@@ -511,23 +523,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 _weatherSettings.Longitude != 0 ? _weatherSettings.Longitude : -56.0949,
                 _weatherSettings.Timezone);
 
-            WeatherProviderText = data.ProviderName;
-            WeatherLocationText = data.LocationName;
-
-            WeatherCurrentTempText = $"{data.Current.Temperature:F1} °C";
-            WeatherCurrentHumidityText = $"{data.Current.Humidity}%";
-            WeatherTodayMaxText = $"{data.TodayTempMax:F0} °C";
-            WeatherTodayMinText = $"{data.TodayTempMin:F0} °C";
-            WeatherPrecipitationProbabilityText = $"{data.MaxPrecipitationProbabilityNext24Hours}%";
-            WeatherConditionText = data.Current.ConditionText;
-            WeatherIcon = data.Current.Icon;
-            WeatherLastUpdatedText = $"{data.LastUpdated:HH:mm}";
-
-            ForecastDays.Clear();
-            foreach (var day in data.Forecast)
-            {
-                ForecastDays.Add(day);
-            }
+            ApplyWeatherData(data, isFallback: false);
         }
         catch (Exception ex)
         {
@@ -542,22 +538,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                         _weatherSettings.Longitude != 0 ? _weatherSettings.Longitude : -56.0949,
                         _weatherSettings.Timezone);
 
-                    WeatherProviderText = "OpenMeteo (Fallback)";
-                    WeatherLocationText = fallbackData.LocationName;
-                    WeatherCurrentTempText = $"{fallbackData.Current.Temperature:F1} °C";
-                    WeatherCurrentHumidityText = $"{fallbackData.Current.Humidity}%";
-                    WeatherTodayMaxText = $"{fallbackData.TodayTempMax:F0} °C";
-                    WeatherTodayMinText = $"{fallbackData.TodayTempMin:F0} °C";
-                    WeatherPrecipitationProbabilityText = $"{fallbackData.MaxPrecipitationProbabilityNext24Hours}%";
-                    WeatherConditionText = fallbackData.Current.ConditionText;
-                    WeatherIcon = fallbackData.Current.Icon;
-                    WeatherLastUpdatedText = $"{fallbackData.LastUpdated:HH:mm} (Fallback)";
-
-                    ForecastDays.Clear();
-                    foreach (var day in fallbackData.Forecast)
-                    {
-                        ForecastDays.Add(day);
-                    }
+                    ApplyWeatherData(fallbackData, isFallback: true);
                     return;
                 }
                 catch { }
@@ -568,6 +549,37 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         finally
         {
             IsWeatherLoading = false;
+        }
+    }
+
+    private void ApplyWeatherData(WeatherData data, bool isFallback)
+    {
+        WeatherProviderText = isFallback ? $"{data.ProviderName} (Fallback)" : data.ProviderName;
+        WeatherLocationText = data.LocationName;
+
+        double tempC = data.Current.Temperature;
+        double tempF = (tempC * 1.8) + 32.0;
+
+        double feelsC = data.Current.FeelsLike;
+        double feelsF = (feelsC * 1.8) + 32.0;
+
+        WeatherCurrentTempText = $"{tempC:F1} °C";
+        WeatherCurrentTempFahrenheitText = $"{tempF:F1}°F";
+        WeatherCurrentTempCelsiusText = $"({tempC:F1} °C)";
+        WeatherFeelsLikeText = $"{feelsF:F1}°F ({feelsC:F1} °C)";
+        WeatherWindSpeedText = $"{data.Current.WindSpeedKmH:F0} km/h";
+        WeatherCurrentHumidityText = $"{data.Current.Humidity}%";
+        WeatherTodayMaxText = $"{data.TodayTempMax:F0} °C";
+        WeatherTodayMinText = $"{data.TodayTempMin:F0} °C";
+        WeatherPrecipitationProbabilityText = $"{data.MaxPrecipitationProbabilityNext24Hours}%";
+        WeatherConditionText = data.Current.ConditionText;
+        WeatherIcon = data.Current.Icon;
+        WeatherLastUpdatedText = isFallback ? $"{data.LastUpdated:HH:mm} (Fallback)" : $"{data.LastUpdated:HH:mm}";
+
+        ForecastDays.Clear();
+        foreach (var day in data.Forecast)
+        {
+            ForecastDays.Add(day);
         }
     }
 

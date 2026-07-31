@@ -41,6 +41,8 @@ public class OpenWeatherService : IWeatherService
 
         double currentTemp = currentRoot.GetProperty("main").GetProperty("temp").GetDouble();
         int currentHumidity = currentRoot.GetProperty("main").GetProperty("humidity").GetInt32();
+        double feelsLike = currentRoot.GetProperty("main").TryGetProperty("feels_like", out var feelsProp) ? feelsProp.GetDouble() : currentTemp;
+        double windSpeed = currentRoot.TryGetProperty("wind", out var windObj) && windObj.TryGetProperty("speed", out var speedProp) ? speedProp.GetDouble() * 3.6 : 0;
         string condition = currentRoot.GetProperty("weather")[0].GetProperty("description").GetString() ?? "Limpo";
         string iconCode = currentRoot.GetProperty("weather")[0].GetProperty("icon").GetString() ?? "01d";
 
@@ -52,6 +54,8 @@ public class OpenWeatherService : IWeatherService
             Current = new CurrentWeather
             {
                 Temperature = currentTemp,
+                FeelsLike = feelsLike,
+                WindSpeedKmH = windSpeed,
                 Humidity = currentHumidity,
                 ConditionText = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(condition),
                 Icon = MeteoconAssets.GetBitmap(MapOpenWeatherIcon(iconCode))

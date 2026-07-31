@@ -19,7 +19,7 @@ public class OpenMeteoService : IWeatherService
     {
         string encodedTimezone = Uri.EscapeDataString(string.IsNullOrWhiteSpace(timezone) ? "America/Cuiaba" : timezone);
         string url = string.Format(CultureInfo.InvariantCulture,
-            "https://api.open-meteo.com/v1/forecast?latitude={0}&longitude={1}&current=temperature_2m,relative_humidity_2m,weather_code&hourly=precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone={2}",
+            "https://api.open-meteo.com/v1/forecast?latitude={0}&longitude={1}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&hourly=precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone={2}",
             latitude, longitude, encodedTimezone);
 
         var response = await HttpClient.GetAsync(url, ct);
@@ -40,6 +40,8 @@ public class OpenMeteoService : IWeatherService
         {
             double temp = currentEl.GetProperty("temperature_2m").GetDouble();
             int humidity = currentEl.GetProperty("relative_humidity_2m").GetInt32();
+            double feelsLike = currentEl.TryGetProperty("apparent_temperature", out var feelsProp) ? feelsProp.GetDouble() : temp;
+            double windSpeed = currentEl.TryGetProperty("wind_speed_10m", out var windProp) ? windProp.GetDouble() : 0;
             int code = currentEl.GetProperty("weather_code").GetInt32();
 
             var (condText, iconName) = MapWmoCode(code);
@@ -48,6 +50,8 @@ public class OpenMeteoService : IWeatherService
             weatherData.Current = new CurrentWeather
             {
                 Temperature = temp,
+                FeelsLike = feelsLike,
+                WindSpeedKmH = windSpeed,
                 Humidity = humidity,
                 ConditionText = condText,
                 Icon = MeteoconAssets.GetBitmap(MeteoconAssets.ResolveWeatherIconName(iconName, isNight))

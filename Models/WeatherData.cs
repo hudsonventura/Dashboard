@@ -7,6 +7,8 @@ namespace Dashboard.Models;
 public class CurrentWeather
 {
     public double Temperature { get; set; }
+    public double FeelsLike { get; set; }
+    public double WindSpeedKmH { get; set; }
     public int Humidity { get; set; }
     public string ConditionText { get; set; } = "Ensolarado";
     public Bitmap Icon { get; set; } = MeteoconAssets.GetBitmap("clear-day");
