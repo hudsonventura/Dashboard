@@ -505,7 +505,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             WeatherCurrentHumidityText = $"{data.Current.Humidity}%";
             WeatherConditionText = data.Current.ConditionText;
             WeatherIcon = data.Current.Icon;
-            WeatherLastUpdatedText = $"Atualizado às {data.LastUpdated:HH:mm} (30 min auto)";
+            WeatherLastUpdatedText = $"{data.LastUpdated:HH:mm}";
 
             ForecastDays.Clear();
             foreach (var day in data.Forecast)
@@ -532,7 +532,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     WeatherCurrentHumidityText = $"{fallbackData.Current.Humidity}%";
                     WeatherConditionText = fallbackData.Current.ConditionText;
                     WeatherIcon = fallbackData.Current.Icon;
-                    WeatherLastUpdatedText = $"Atualizado às {fallbackData.LastUpdated:HH:mm} (Fallback)";
+                    WeatherLastUpdatedText = $"{fallbackData.LastUpdated:HH:mm} (Fallback)";
 
                     ForecastDays.Clear();
                     foreach (var day in fallbackData.Forecast)

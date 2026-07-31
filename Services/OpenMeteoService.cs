@@ -64,7 +64,7 @@ public class OpenMeteoService : IWeatherService
             int count = times.GetArrayLength();
             // Get next 4 days (start from index 1 for tomorrow, or index 1..4)
             int forecastCount = 0;
-            var culture = new CultureInfo("pt-BR");
+            var culture = CultureInfo.GetCultureInfo("en-US");
 
             for (int i = 1; i < count && forecastCount < 4; i++)
             {

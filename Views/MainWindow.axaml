@@ -140,8 +140,11 @@
                                                         Padding="2" 
                                                         Margin="1">
                                                     <StackPanel Spacing="3" HorizontalAlignment="Center">
-                                                        
-                                                        
+                                                        <TextBlock Text="{Binding DayOfWeek}"
+                                                                   FontSize="10"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#E0F2FE"
+                                                                   HorizontalAlignment="Center" />
                                                         <Image Source="{Binding Icon}"
                                                                Width="{Binding $parent[Window].DataContext.WeatherForecastIconSize}"
                                                                Height="{Binding $parent[Window].DataContext.WeatherForecastIconSize}"

@@ -71,7 +71,7 @@ public class OpenWeatherService : IWeatherService
             var list = forecastDoc.RootElement.GetProperty("list");
 
             var dailyMap = new Dictionary<string, (double Max, double Min, string Icon, string Cond)>();
-            var culture = new CultureInfo("pt-BR");
+            var culture = CultureInfo.GetCultureInfo("en-US");
 
             foreach (var item in list.EnumerateArray())
             {
