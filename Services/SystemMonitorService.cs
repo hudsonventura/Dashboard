@@ -140,6 +140,14 @@ public sealed class SystemMonitorService
 
     private static string? ResolvePhysicalDevice(string mountPoint)
     {
+        string? rawDevicePath = ResolveDeviceForMountPoint(mountPoint);
+        if (string.IsNullOrWhiteSpace(rawDevicePath)) return null;
+
+        return ResolvePhysicalDriveFromDevice(rawDevicePath);
+    }
+
+    private static string? ResolveDeviceForMountPoint(string mountPoint)
+    {
         const string mountsPath = "/proc/mounts";
         if (!File.Exists(mountsPath)) return null;
 
@@ -153,10 +161,134 @@ public sealed class SystemMonitorService
 
             string mountedAt = fields[1].Replace("\\040", " ").TrimEnd(Path.DirectorySeparatorChar);
             if (mountedAt.Length == 0) mountedAt = Path.DirectorySeparatorChar.ToString();
-            if (!string.Equals(mountedAt, normalizedMountPoint, StringComparison.Ordinal)) continue;
-
-            return ToPhysicalDevice(fields[0]);
+            if (string.Equals(mountedAt, normalizedMountPoint, StringComparison.Ordinal))
+            {
+                return fields[0];
+            }
         }
+
+        return null;
+    }
+
+    private static string? ResolvePhysicalDriveFromDevice(string devicePath, int maxDepth = 5)
+    {
+        if (maxDepth <= 0 || string.IsNullOrWhiteSpace(devicePath)) return null;
+
+        string name = Path.GetFileName(devicePath);
+
+        // 1. Check if device is a loop device e.g. loop0, loop1 (common with VeraCrypt file/device mounts)
+        if (name.StartsWith("loop", StringComparison.OrdinalIgnoreCase))
+        {
+            string backingFilePath = $"/sys/block/{name}/loop/backing_file";
+            if (File.Exists(backingFilePath))
+            {
+                try
+                {
+                    string backingFile = File.ReadAllText(backingFilePath).Trim();
+                    if (backingFile.StartsWith("/dev/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ResolvePhysicalDriveFromDevice(backingFile, maxDepth - 1);
+                    }
+                    else if (File.Exists(backingFile))
+                    {
+                        string? parentMountPoint = FindMountPointForFilePath(backingFile);
+                        if (!string.IsNullOrEmpty(parentMountPoint))
+                        {
+                            string? parentDevice = ResolveDeviceForMountPoint(parentMountPoint);
+                            if (!string.IsNullOrEmpty(parentDevice) && !parentDevice.Equals(devicePath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                return ResolvePhysicalDriveFromDevice(parentDevice, maxDepth - 1);
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+
+        // 2. Check if device is a device-mapper / veracrypt device e.g. dm-0, mapper/veracrypt1
+        if (name.StartsWith("dm-", StringComparison.OrdinalIgnoreCase) || devicePath.Contains("/mapper/", StringComparison.OrdinalIgnoreCase))
+        {
+            string realDmName = name;
+            if (devicePath.Contains("/mapper/", StringComparison.OrdinalIgnoreCase))
+            {
+                realDmName = FindDmDeviceName(name) ?? name;
+            }
+
+            string slavesDir = $"/sys/class/block/{realDmName}/slaves";
+            if (!Directory.Exists(slavesDir))
+            {
+                slavesDir = $"/sys/block/{realDmName}/slaves";
+            }
+
+            if (Directory.Exists(slavesDir))
+            {
+                try
+                {
+                    var slaves = Directory.GetDirectories(slavesDir)
+                        .Concat(Directory.GetFiles(slavesDir))
+                        .Select(Path.GetFileName)
+                        .Where(n => !string.IsNullOrEmpty(n))
+                        .ToList();
+
+                    foreach (var slave in slaves)
+                    {
+                        string slaveDevicePath = $"/dev/{slave}";
+                        string? resolved = ResolvePhysicalDriveFromDevice(slaveDevicePath, maxDepth - 1);
+                        if (!string.IsNullOrEmpty(resolved)) return resolved;
+                    }
+                }
+                catch { }
+            }
+        }
+
+        // 3. Fallback / Standard physical device mapping (e.g. sdb1 -> /dev/sdb, nvme0n1p2 -> /dev/nvme0n1)
+        return ToPhysicalDevice(devicePath);
+    }
+
+    private static string? FindMountPointForFilePath(string filePath)
+    {
+        const string mountsPath = "/proc/mounts";
+        if (!File.Exists(mountsPath)) return null;
+
+        string bestMatch = string.Empty;
+
+        foreach (string line in File.ReadLines(mountsPath))
+        {
+            string[] fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length < 2 || !fields[0].StartsWith("/dev/", StringComparison.Ordinal)) continue;
+
+            string mountedAt = fields[1].Replace("\\040", " ");
+            if (filePath.StartsWith(mountedAt, StringComparison.Ordinal) && mountedAt.Length > bestMatch.Length)
+            {
+                bestMatch = mountedAt;
+            }
+        }
+
+        return string.IsNullOrEmpty(bestMatch) ? null : bestMatch;
+    }
+
+    private static string? FindDmDeviceName(string mapperName)
+    {
+        const string sysClassBlock = "/sys/class/block";
+        if (!Directory.Exists(sysClassBlock)) return null;
+
+        try
+        {
+            foreach (var dir in Directory.GetDirectories(sysClassBlock, "dm-*"))
+            {
+                string nameFile = Path.Combine(dir, "dm", "name");
+                if (File.Exists(nameFile))
+                {
+                    string content = File.ReadAllText(nameFile).Trim();
+                    if (string.Equals(content, mapperName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Path.GetFileName(dir);
+                    }
+                }
+            }
+        }
+        catch { }
 
         return null;
     }
