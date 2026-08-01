@@ -68,7 +68,7 @@
                                                        VerticalAlignment="Center" />
                                             </Border>
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="Weather &amp; Forecast" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" />
+                                                <TextBlock Text="Weather" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" />
                                                 <TextBlock Text="{Binding WeatherLocationText}" FontSize="9" Foreground="#94A3B8" />
                                             </StackPanel>
                                         </StackPanel>
@@ -141,11 +141,11 @@
                                                     </StackPanel>
                                                 </StackPanel>
 
-                                                <TextBlock Grid.Column="2" 
+                                                <!-- <TextBlock Grid.Column="2" 
                                                            Text="{Binding WeatherLastUpdatedText}" 
                                                            FontSize="9" 
                                                            Foreground="#475569" 
-                                                           VerticalAlignment="Top" />
+                                                           VerticalAlignment="Top" /> -->
                                             </Grid>
 
                                             <!-- BOTTOM: GRID DE MÉTRICAS ADICIONAIS -->
