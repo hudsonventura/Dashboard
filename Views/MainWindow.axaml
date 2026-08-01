@@ -157,7 +157,7 @@
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                         <TextBlock Text="🌡️" FontSize="15" VerticalAlignment="Center" />
                                                          <StackPanel VerticalAlignment="Center">
-                                                             <TextBlock Text="Feels Like" FontSize="12" Foreground="#64748B" />
+                                                             <TextBlock Text="Feels Like" FontSize="9" Foreground="#64748B" />
                                                              <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                                                                  <TextBlock Text="{Binding WeatherFeelsLikeFahrenheitText}" FontSize="15" FontWeight="Bold" Foreground="#E2E8F0" />
                                                                  
@@ -172,7 +172,7 @@
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                         <TextBlock Text="💨" FontSize="11" VerticalAlignment="Center" />
                                                         <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="Wind" FontSize="12" Foreground="#64748B" />
+                                                            <TextBlock Text="Wind" FontSize="9" Foreground="#64748B" />
                                                             <TextBlock Text="{Binding WeatherWindSpeedText}" FontSize="15" FontWeight="Bold" Foreground="#E2E8F0" />
                                                         </StackPanel>
                                                     </StackPanel>
@@ -184,7 +184,7 @@
                                                         <Image Source="avares://Dashboard/Assets/Meteocons/png/humidity.png"
                                                                Width="24" Height="24" Stretch="Uniform" VerticalAlignment="Center" />
                                                         <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="Humidity" FontSize="12" Foreground="#64748B" />
+                                                            <TextBlock Text="Humidity" FontSize="9" Foreground="#64748B" />
                                                             <TextBlock Text="{Binding WeatherCurrentHumidityText}" FontSize="15" FontWeight="Bold" Foreground="#38BDF8" />
                                                         </StackPanel>
                                                     </StackPanel>
@@ -196,7 +196,7 @@
                                                         <Image Source="avares://Dashboard/Assets/Meteocons/png/rain.png"
                                                                Width="24" Height="24" Stretch="Uniform" VerticalAlignment="Center" />
                                                         <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="Rain 24h" FontSize="12" Foreground="#64748B" />
+                                                            <TextBlock Text="Rain 24h" FontSize="9" Foreground="#64748B" />
                                                             <TextBlock Text="{Binding WeatherPrecipitationProbabilityText}" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" />
                                                         </StackPanel>
                                                     </StackPanel>
@@ -320,14 +320,12 @@
                                                    Height="{Binding SolisTimeIconSize}"
                                                    Stretch="Uniform"
                                                    VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding SolisLocalDateText}" FontSize="16" FontWeight="SemiBold" Foreground="#F59E0B" />
-                                            <TextBlock Text="{Binding SolisLocalTimeText}" FontSize="16" FontWeight="Bold" Foreground="#F59E0B" />
                                         </StackPanel>
                                     </StackPanel>
                                 </Grid>
 
                                 <Grid Grid.Row="1" ColumnDefinitions="42*,58*" ColumnSpacing="6">
-                                    <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4">
+                                     <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
                                         <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,1">
                                             <StackPanel HorizontalAlignment="Left" Spacing="0">
                                                 <TextBlock Text="Power" FontSize="10" Foreground="#94A3B8" HorizontalAlignment="Center" />
@@ -411,6 +409,10 @@
                                                 <TextBlock Text="{Binding SolisLast6KwText}" FontSize="14" FontWeight="Bold" Foreground="#F59E0B" />
                                             </StackPanel>
                                         </Grid>
+                                         <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,2,0,0">
+                                             <TextBlock Text="{Binding SolisLocalDateText}" FontSize="38" FontWeight="SemiBold" Foreground="#ddd" />
+                                             <TextBlock Text="{Binding SolisLocalTimeText}" FontSize="38" FontWeight="SemiBold" Foreground="#ddd" />
+                                         </StackPanel>
                                     </Grid>
 
                                     <DockPanel Grid.Column="1" MinHeight="230">
@@ -453,7 +455,7 @@
                                         <DataTemplate x:DataType="vm:CpuUsageViewModel">
                                             <Grid ColumnDefinitions="38, *, 42" Margin="0,0.5">
                                                 <TextBlock Text="{Binding Label}" FontSize="10" Foreground="#93C5FD" VerticalAlignment="Center" />
-                                                <ProgressBar Grid.Column="1" Value="{Binding Usage}" Maximum="100" Height="3" Background="#394250"
+                                                <ProgressBar Grid.Column="1" Value="{Binding Usage}" Maximum="100" Height="6" Background="#394250"
                                                              Foreground="{Binding BarColor}" Classes.critical="{Binding IsCritical}" VerticalAlignment="Center" />
                                                 <TextBlock Grid.Column="2" Text="{Binding UsageText}" FontSize="10" FontWeight="SemiBold" Foreground="#E0F2FE" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                             </Grid>
@@ -485,7 +487,7 @@
                                                         <TextBlock Text="{Binding Name}" FontSize="9" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Grid.Column="1" Text="{Binding UsageText}" FontSize="9" FontWeight="SemiBold" Foreground="#E0F2FE" />
                                                     </Grid>
-                                                    <ProgressBar Value="{Binding Usage}" Maximum="100" Height="3" Background="#394250"
+                                                    <ProgressBar Value="{Binding Usage}" Maximum="100" Height="6" Background="#394250"
                                                                  Foreground="{Binding BarColor}" Classes.critical="{Binding IsCritical}" />
                                                     <Grid ColumnDefinitions="*, Auto">
                                                          <TextBlock Text="{Binding TemperatureText}" Foreground="{Binding TemperatureColor}" Opacity="{Binding TemperatureOpacity}" FontSize="8" />
