@@ -26,6 +26,7 @@ public partial class DiskUsageViewModel : ObservableObject
 {
     [ObservableProperty] private string _name = string.Empty;
     [ObservableProperty] private string _mountPoint = string.Empty;
+    [ObservableProperty] private string _device = string.Empty;
     [ObservableProperty] private double _usage;
     [ObservableProperty] private string _usageText = "--";
     [ObservableProperty] private string _barColor = UsageBarPalette.Blue;

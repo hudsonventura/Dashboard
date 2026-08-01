@@ -484,8 +484,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 DiskUsageViewModel item = SystemDisks[index];
                 var usage = ToPercentage(disk.UsedBytes, disk.TotalBytes);
 
-                item.Name = string.IsNullOrWhiteSpace(disk.Name) ? disk.MountPoint : disk.Name;
                 item.MountPoint = disk.MountPoint;
+                item.Device = disk.Device;
+                string mountPath = string.IsNullOrWhiteSpace(disk.Name) ? disk.MountPoint : disk.Name;
+                item.Name = !string.IsNullOrWhiteSpace(disk.Device) ? $"{mountPath} ({disk.Device})" : mountPath;
                 item.Usage = usage;
                 item.UsageText = FormatUsage(disk.UsedBytes, disk.TotalBytes);
                 item.BarColor = UsageBarPalette.ForPercent(usage);

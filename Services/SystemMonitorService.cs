@@ -110,11 +110,16 @@ public sealed class SystemMonitorService
         .OrderBy(drive => drive.Name)
         .Select(drive =>
         {
-            SmartDiskInfo smart = GetSmartInfo(drive.RootDirectory.FullName);
+            SmartDiskInfo smart = GetSmartInfo(drive.RootDirectory.FullName, out string? physicalDevicePath);
+            string deviceName = !string.IsNullOrWhiteSpace(physicalDevicePath)
+                ? Path.GetFileName(physicalDevicePath)
+                : string.Empty;
+
             return new DiskUsage
             {
                 Name = drive.Name.TrimEnd(Path.DirectorySeparatorChar),
                 MountPoint = drive.RootDirectory.FullName,
+                Device = deviceName,
                 UsedBytes = drive.TotalSize - drive.AvailableFreeSpace,
                 TotalBytes = drive.TotalSize,
                 TemperatureCelsius = smart.TemperatureCelsius,
@@ -124,9 +129,9 @@ public sealed class SystemMonitorService
         })
         .ToList();
 
-    private SmartDiskInfo GetSmartInfo(string mountPoint)
+    private SmartDiskInfo GetSmartInfo(string mountPoint, out string? devicePath)
     {
-        string? devicePath = ResolvePhysicalDevice(mountPoint);
+        devicePath = ResolvePhysicalDevice(mountPoint);
         if (string.IsNullOrWhiteSpace(devicePath))
             return SmartDiskInfo.Unavailable;
 
@@ -173,6 +178,23 @@ public sealed class SystemMonitorService
     private static string? ResolvePhysicalDriveFromDevice(string devicePath, int maxDepth = 5)
     {
         if (maxDepth <= 0 || string.IsNullOrWhiteSpace(devicePath)) return null;
+
+        try
+        {
+            if (File.Exists(devicePath))
+            {
+                var linkInfo = new FileInfo(devicePath);
+                if (linkInfo.LinkTarget != null)
+                {
+                    string? target = linkInfo.ResolveLinkTarget(true)?.FullName;
+                    if (!string.IsNullOrEmpty(target) && target.StartsWith("/dev/", StringComparison.Ordinal))
+                    {
+                        devicePath = target;
+                    }
+                }
+            }
+        }
+        catch { }
 
         string name = Path.GetFileName(devicePath);
 

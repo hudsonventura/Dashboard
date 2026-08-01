@@ -17,6 +17,7 @@ public sealed class DiskUsage
 {
     public string Name { get; init; } = string.Empty;
     public string MountPoint { get; init; } = string.Empty;
+    public string Device { get; init; } = string.Empty;
     public long UsedBytes { get; init; }
     public long TotalBytes { get; init; }
     public double? TemperatureCelsius { get; init; }
