@@ -169,6 +169,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _weatherFeelsLikeText = "-- °F (-- °C)";
 
     [ObservableProperty]
+    private string _weatherFeelsLikeFahrenheitText = "-- °F";
+
+    [ObservableProperty]
+    private string _weatherFeelsLikeCelsiusText = "(-- °C)";
+
+    [ObservableProperty]
     private string _weatherWindSpeedText = "-- km/h";
 
     [ObservableProperty]
@@ -681,6 +687,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         WeatherCurrentTempText = $"{tempC:F1} °C";
         WeatherCurrentTempFahrenheitText = $"{tempF:F1}°F";
         WeatherCurrentTempCelsiusText = $"{tempC:F1} °C";
+        WeatherFeelsLikeFahrenheitText = $"{feelsF:F1}°F";
+        WeatherFeelsLikeCelsiusText = $"({feelsC:F1} °C)";
         WeatherFeelsLikeText = $"{feelsF:F1}°F ({feelsC:F1} °C)";
         WeatherWindSpeedText = $"{data.Current.WindSpeedKmH:F0} km/h";
         WeatherCurrentHumidityText = $"{data.Current.Humidity}%";

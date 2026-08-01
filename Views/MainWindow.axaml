@@ -156,10 +156,13 @@
                                                 <Border Grid.Row="0" Grid.Column="0" Background="#111827" CornerRadius="5" Padding="5,3">
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                         <TextBlock Text="🌡️" FontSize="11" VerticalAlignment="Center" />
-                                                        <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="Feels Like" FontSize="8" Foreground="#64748B" />
-                                                            <TextBlock Text="{Binding WeatherFeelsLikeText}" FontSize="9.5" FontWeight="Bold" Foreground="#E2E8F0" />
-                                                        </StackPanel>
+                                                         <StackPanel VerticalAlignment="Center">
+                                                             <TextBlock Text="Feels Like" FontSize="8" Foreground="#64748B" />
+                                                             <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                                                                 <TextBlock Text="{Binding WeatherFeelsLikeFahrenheitText}" FontSize="9.5" FontWeight="Bold" Foreground="#E2E8F0" />
+                                                                 <TextBlock Text="{Binding WeatherFeelsLikeCelsiusText}" FontSize="7.5" FontWeight="Normal" Foreground="#64748B" VerticalAlignment="Bottom" Margin="0,0,0,0.5" />
+                                                             </StackPanel>
+                                                         </StackPanel>
                                                     </StackPanel>
                                                 </Border>
 
