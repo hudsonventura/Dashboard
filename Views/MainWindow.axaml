@@ -130,14 +130,16 @@
                                                                        FontSize="23" 
                                                                        FontWeight="Bold" 
                                                                        Foreground="#F8FAFC" />
-                                                            <TextBlock Text="{Binding WeatherCurrentTempCelsiusText}" 
+                                                            
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding WeatherCurrentTempCelsiusText}" 
                                                                        FontSize="12" 
                                                                        FontWeight="SemiBold" 
                                                                        Foreground="#64748B" 
                                                                        VerticalAlignment="Bottom"
                                                                        Margin="0,0,0,3" />
-                                                        </StackPanel>
                                                         <TextBlock Text="{Binding WeatherConditionText}" FontSize="11" FontWeight="SemiBold" Foreground="#94A3B8" />
+                                                        
                                                     </StackPanel>
                                                 </StackPanel>
 
