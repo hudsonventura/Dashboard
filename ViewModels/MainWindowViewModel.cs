@@ -362,7 +362,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             SysCpuTemperatureOpacity = TemperaturePalette.IsFlashing(RawCpuTemperatureCelsius) ? FlashingTempOpacity : 1.0;
             SolisTemperatureOpacity = TemperaturePalette.IsFlashing(RawSolisTemperatureCelsius) ? FlashingTempOpacity : 1.0;
-            SolisIgbtTemperatureOpacity = TemperaturePalette.IsFlashing(RawSolisIgbtTemperatureCelsius) ? FlashingTempOpacity : 1.0;
+            SolisIgbtTemperatureOpacity = TemperaturePalette.IsIgbtFlashing(RawSolisIgbtTemperatureCelsius) ? FlashingTempOpacity : 1.0;
 
             foreach (var disk in SystemDisks)
             {
@@ -770,9 +770,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             SolisTemperatureText = FormatUnit(detail.InverterTemperature, detail.InverterTemperatureUnit ?? "°C");
             SolisTemperatureColor = TemperaturePalette.ForCelsius(detail.InverterTemperature);
 
-            RawSolisIgbtTemperatureCelsius = detail.IgbtTemperatureLimit;
-            SolisIgbtTemperatureText = ResolveIgbtTemperature(detail);
-            SolisIgbtTemperatureColor = TemperaturePalette.ForCelsius(detail.IgbtTemperatureLimit);
+            var igbtTemp = GetIgbtTemperatureCelsius(detail);
+            RawSolisIgbtTemperatureCelsius = igbtTemp;
+            SolisIgbtTemperatureText = FormatUnit(igbtTemp, detail.InverterTemperatureUnit ?? "°C");
+            SolisIgbtTemperatureColor = TemperaturePalette.ForIgbtCelsius(igbtTemp);
             SolisPv1PowerText = FormatUnit(detail.Pow1, detail.Pow1Str ?? "W");
             SolisPv1DetailText = $"{FormatUnit(detail.UPv1, detail.UPv1Str ?? "V")} · {FormatUnit(detail.IPv1, detail.IPv1Str ?? "A")}";
             SolisPv2PowerText = FormatUnit(detail.Pow2, detail.Pow2Str ?? "W");
@@ -850,12 +851,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         SolisTimeIcon = MeteoconAssets.GetBitmap(MeteoconAssets.ResolveTimeIconName(localNow.Hour));
     }
 
-    private static string ResolveIgbtTemperature(InverterDetail detail)
+    private static double? GetIgbtTemperatureCelsius(InverterDetail detail)
     {
-        if (detail.InverterTemperature is null)
-            return "N/A";
+        if (detail.IgbtTemperatureLimit.HasValue && detail.IgbtTemperatureLimit.Value < 85 && detail.IgbtTemperatureLimit.Value > -50)
+        {
+            return detail.IgbtTemperatureLimit.Value;
+        }
 
-        return $"{detail.InverterTemperature.Value:0.0} {detail.InverterTemperatureUnit ?? "°C"}";
+        return detail.InverterTemperature;
     }
 
     private static string ExtractHour(string? value)

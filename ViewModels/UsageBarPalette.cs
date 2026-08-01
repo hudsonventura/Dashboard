@@ -44,4 +44,19 @@ public static class TemperaturePalette
     {
         return tempCelsius is not null && tempCelsius.Value > 59;
     }
+
+    public static string ForIgbtCelsius(double? tempCelsius)
+    {
+        if (tempCelsius is null) return "#94A3B8";
+
+        double temp = tempCelsius.Value;
+        if (temp <= 50) return Green;
+        if (temp <= 60) return Yellow;
+        return Red;
+    }
+
+    public static bool IsIgbtFlashing(double? tempCelsius)
+    {
+        return tempCelsius is not null && tempCelsius.Value > 80;
+    }
 }

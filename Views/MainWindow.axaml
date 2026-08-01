@@ -397,12 +397,7 @@
                                                      <TextBlock Text="{Binding SolisIgbtTemperatureText}" Foreground="{Binding SolisIgbtTemperatureColor}" Opacity="{Binding SolisIgbtTemperatureOpacity}" FontSize="11" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
                                                  </StackPanel>
                                              </Border>
-                                             <Border Grid.Column="1" Background="#1E293B" CornerRadius="7" Padding="4">
-                                                 <StackPanel Spacing="0.5">
-                                                     <TextBlock Text="Inverter Temp" FontSize="9" Foreground="#94A3B8" />
-                                                     <TextBlock Text="{Binding SolisTemperatureText}" Foreground="{Binding SolisTemperatureColor}" Opacity="{Binding SolisTemperatureOpacity}" FontSize="11" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
-                                                 </StackPanel>
-                                             </Border>
+                                             
                                             <StackPanel Grid.Column="2" Spacing="0.5" VerticalAlignment="Center">
                                                 <TextBlock Text="1st ≥ 6 kW" FontSize="9" Foreground="#94A3B8" />
                                                 <TextBlock Text="{Binding SolisFirst6KwText}" FontSize="14" FontWeight="Bold" Foreground="#F59E0B" />
