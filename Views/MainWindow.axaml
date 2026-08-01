@@ -389,12 +389,18 @@
                                         </Grid>
 
                                         <Grid Grid.Row="3" ColumnDefinitions="*,*,*,*" ColumnSpacing="3">
-                                            <Border Background="#1E293B" CornerRadius="7" Padding="4">
-                                                <StackPanel Spacing="0.5">
-                                                    <TextBlock Text="IGBT" FontSize="9" Foreground="#94A3B8" />
-                                                    <TextBlock Text="{Binding SolisIgbtTemperatureText}" FontSize="11" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
-                                                </StackPanel>
-                                            </Border>
+                                             <Border Background="#1E293B" CornerRadius="7" Padding="4">
+                                                 <StackPanel Spacing="0.5">
+                                                     <TextBlock Text="IGBT" FontSize="9" Foreground="#94A3B8" />
+                                                     <TextBlock Text="{Binding SolisIgbtTemperatureText}" Foreground="{Binding SolisIgbtTemperatureColor}" Opacity="{Binding SolisIgbtTemperatureOpacity}" FontSize="11" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                                                 </StackPanel>
+                                             </Border>
+                                             <Border Grid.Column="1" Background="#1E293B" CornerRadius="7" Padding="4">
+                                                 <StackPanel Spacing="0.5">
+                                                     <TextBlock Text="Inverter Temp" FontSize="9" Foreground="#94A3B8" />
+                                                     <TextBlock Text="{Binding SolisTemperatureText}" Foreground="{Binding SolisTemperatureColor}" Opacity="{Binding SolisTemperatureOpacity}" FontSize="11" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                                                 </StackPanel>
+                                             </Border>
                                             <StackPanel Grid.Column="2" Spacing="0.5" VerticalAlignment="Center">
                                                 <TextBlock Text="1st ≥ 6 kW" FontSize="9" Foreground="#94A3B8" />
                                                 <TextBlock Text="{Binding SolisFirst6KwText}" FontSize="14" FontWeight="Bold" Foreground="#F59E0B" />
@@ -438,7 +444,7 @@
                             <StackPanel Spacing="4.5">
                                 <Grid ColumnDefinitions="*, Auto">
                                     <TextBlock Text="CPU" FontSize="13" FontWeight="Bold" Foreground="#7DD3FC" />
-                                    <TextBlock Grid.Column="1" Text="{Binding SysCpuTemperatureText}" FontSize="12" FontWeight="Bold" Foreground="#FBBF24" />
+                                     <TextBlock Grid.Column="1" Text="{Binding SysCpuTemperatureText}" Foreground="{Binding SysCpuTemperatureColor}" Opacity="{Binding SysCpuTemperatureOpacity}" FontSize="12" FontWeight="Bold" />
                                 </Grid>
 
                                 <ItemsControl ItemsSource="{Binding CpuCores}">
@@ -481,7 +487,7 @@
                                                     <ProgressBar Value="{Binding Usage}" Maximum="100" Height="3" Background="#394250"
                                                                  Foreground="{Binding BarColor}" Classes.critical="{Binding IsCritical}" />
                                                     <Grid ColumnDefinitions="*, Auto">
-                                                        <TextBlock Text="{Binding TemperatureText}" FontSize="8" Foreground="#FBBF24" />
+                                                         <TextBlock Text="{Binding TemperatureText}" Foreground="{Binding TemperatureColor}" Opacity="{Binding TemperatureOpacity}" FontSize="8" />
                                                         <TextBlock Grid.Column="1" Text="{Binding SmartStatusText}" FontSize="8" FontWeight="SemiBold"
                                                                    Foreground="{Binding SmartStatusColor}" />
                                                     </Grid>

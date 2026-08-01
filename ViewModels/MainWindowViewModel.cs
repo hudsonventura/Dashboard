@@ -91,6 +91,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _solisTemperatureText = "-";
 
     [ObservableProperty]
+    private string _solisTemperatureColor = "#94A3B8";
+
+    [ObservableProperty]
+    private double _solisTemperatureOpacity = 1.0;
+
+    [ObservableProperty]
+    private double? _rawSolisTemperatureCelsius;
+
+    [ObservableProperty]
     private string _solisPv1PowerText = "-";
 
     [ObservableProperty]
@@ -107,6 +116,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _solisIgbtTemperatureText = "-";
+
+    [ObservableProperty]
+    private string _solisIgbtTemperatureColor = "#94A3B8";
+
+    [ObservableProperty]
+    private double _solisIgbtTemperatureOpacity = 1.0;
+
+    [ObservableProperty]
+    private double? _rawSolisIgbtTemperatureCelsius;
 
     [ObservableProperty]
     private string _solisLastUpdatedText = "-";
@@ -207,6 +225,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isSolarProgressAnimated;
 
+    [ObservableProperty]
+    private double _solarProgressOpacity = 1.0;
+
     public double WeatherPanelIconSize => 50;
     public double WeatherHeaderIconSize => 18;
     public double WeatherForecastIconSize => 22;
@@ -247,6 +268,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _sysCpuTemperatureText = "N/D";
 
+    [ObservableProperty]
+    private string _sysCpuTemperatureColor = "#38BDF8";
+
+    [ObservableProperty]
+    private double _sysCpuTemperatureOpacity = 1.0;
+
+    [ObservableProperty]
+    private double? _rawCpuTemperatureCelsius;
+
+    [ObservableProperty]
+    private double _flashingTempOpacity = 1.0;
+
     public ObservableCollection<CpuUsageViewModel> CpuCores { get; } = new();
     public ObservableCollection<DiskUsageViewModel> SystemDisks { get; } = new();
 
@@ -261,6 +294,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _weatherTimer;
     private readonly DispatcherTimer _solisTimer;
     private readonly DispatcherTimer _burnInTimer;
+    private readonly DispatcherTimer _solarPulseTimer;
     private readonly DateTime _startTime = DateTime.Now;
 
     public MainWindowViewModel()
@@ -302,6 +336,40 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         // Run anti-burn-in action immediately upon app startup
         Dispatcher.UIThread.Post(async () => await TriggerBurnInProtectionAsync());
+
+        // Fast pulse timer for solar generation progress animation and high temp flashing (> 59 °C)
+        _solarPulseTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(30)
+        };
+        _solarPulseTimer.Tick += (s, e) =>
+        {
+            double timeMs = DateTime.Now.TimeOfDay.TotalMilliseconds;
+
+            if (IsSolarProgressAnimated)
+            {
+                double phase = (timeMs / 400.0) % (2 * Math.PI);
+                SolarProgressOpacity = 0.625 + 0.375 * Math.Sin(phase);
+            }
+            else
+            {
+                SolarProgressOpacity = 1.0;
+            }
+
+            // High temperature flashing red pulse (> 59 °C)
+            double tempPhase = (timeMs / 200.0) % (2 * Math.PI);
+            FlashingTempOpacity = 0.625 + 0.375 * Math.Sin(tempPhase);
+
+            SysCpuTemperatureOpacity = TemperaturePalette.IsFlashing(RawCpuTemperatureCelsius) ? FlashingTempOpacity : 1.0;
+            SolisTemperatureOpacity = TemperaturePalette.IsFlashing(RawSolisTemperatureCelsius) ? FlashingTempOpacity : 1.0;
+            SolisIgbtTemperatureOpacity = TemperaturePalette.IsFlashing(RawSolisIgbtTemperatureCelsius) ? FlashingTempOpacity : 1.0;
+
+            foreach (var disk in SystemDisks)
+            {
+                disk.TemperatureOpacity = TemperaturePalette.IsFlashing(disk.RawTemperatureCelsius) ? FlashingTempOpacity : 1.0;
+            }
+        };
+        _solarPulseTimer.Start();
 
         SolarChartSeries =
         [
@@ -386,7 +454,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             IsMemoryCritical = UsageBarPalette.IsCritical(SysMemoryUsage);
             SysSwapUsage = ToPercentage(snapshot.SwapUsedBytes, snapshot.SwapTotalBytes);
             SysSwapUsageText = FormatUsage(snapshot.SwapUsedBytes, snapshot.SwapTotalBytes);
-            SysCpuTemperatureText = snapshot.CpuTemperatureCelsius is double temperature ? $"{temperature:F1} °C" : "N/D";
+            RawCpuTemperatureCelsius = snapshot.CpuTemperatureCelsius;
+            if (snapshot.CpuTemperatureCelsius is double temperature)
+            {
+                SysCpuTemperatureText = $"{temperature:F1} °C";
+                SysCpuTemperatureColor = TemperaturePalette.ForCelsius(temperature);
+            }
+            else
+            {
+                SysCpuTemperatureText = "N/D";
+                SysCpuTemperatureColor = "#94A3B8";
+            }
 
             while (SystemDisks.Count < snapshot.Disks.Count)
                 SystemDisks.Add(new DiskUsageViewModel());
@@ -406,7 +484,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 item.UsageText = FormatUsage(disk.UsedBytes, disk.TotalBytes);
                 item.BarColor = UsageBarPalette.ForPercent(usage);
                 item.IsCritical = UsageBarPalette.IsCritical(usage);
+                item.RawTemperatureCelsius = disk.TemperatureCelsius;
                 item.TemperatureText = disk.TemperatureCelsius is double diskTemperature ? $"Temp. {diskTemperature:F0} °C" : "Temp. N/D";
+                item.TemperatureColor = TemperaturePalette.ForCelsius(disk.TemperatureCelsius);
                 item.SmartStatusText = disk.SmartStatus;
                 item.SmartStatusColor = disk.HasSmartErrors ? "#FB7185" :
                     disk.SmartStatus == "S.M.A.R.T. OK" ? "#4ADE80" : "#94A3B8";
@@ -684,8 +764,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             ApplySolarGenerationProgress(detail.EToday, detail.Pac, detail.State);
             SolisPowerText = FormatUnit(detail.Pac, detail.PacStr ?? "W");
             SolisAcCurrentText = FormatUnit(detail.IAc1, detail.IAc1Str ?? "A");
+            RawSolisTemperatureCelsius = detail.InverterTemperature;
             SolisTemperatureText = FormatUnit(detail.InverterTemperature, detail.InverterTemperatureUnit ?? "°C");
+            SolisTemperatureColor = TemperaturePalette.ForCelsius(detail.InverterTemperature);
+
+            RawSolisIgbtTemperatureCelsius = detail.IgbtTemperatureLimit;
             SolisIgbtTemperatureText = ResolveIgbtTemperature(detail);
+            SolisIgbtTemperatureColor = TemperaturePalette.ForCelsius(detail.IgbtTemperatureLimit);
             SolisPv1PowerText = FormatUnit(detail.Pow1, detail.Pow1Str ?? "W");
             SolisPv1DetailText = $"{FormatUnit(detail.UPv1, detail.UPv1Str ?? "V")} · {FormatUnit(detail.IPv1, detail.IPv1Str ?? "A")}";
             SolisPv2PowerText = FormatUnit(detail.Pow2, detail.Pow2Str ?? "W");
