@@ -128,7 +128,7 @@ public class CameraStreamService : IDisposable
                 var psi = new ProcessStartInfo
                 {
                     FileName = "ffmpeg",
-                    Arguments = $"-loglevel warning -rtsp_transport tcp -fflags nobuffer -flags low_delay -i \"{_rtspUrl}\" -an -vf scale={_width}:{_height} -f rawvideo -pix_fmt bgra -",
+                    Arguments = $"-loglevel warning -rtsp_transport tcp -analyzeduration 2000000 -probesize 2000000 -fflags nobuffer -flags low_delay -i \"{_rtspUrl}\" -an -vf scale={_width}:{_height} -f rawvideo -pix_fmt bgra -",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,

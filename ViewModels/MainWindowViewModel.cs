@@ -590,7 +590,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             PrimaryCamera = new CameraViewModel(
                 string.IsNullOrEmpty(primaryItem.Name) ? "Primary Camera" : primaryItem.Name,
                 primaryItem.RtspUrl,
-                primaryItem.Height > 0 ? primaryItem.Height : 410);
+                primaryItem.Height > 0 ? primaryItem.Height : 410,
+                primaryItem.SubStreamRtspUrl);
 
             PrimaryCamera.OnToggleExpandRequested += HandleCameraExpandRequested;
 
@@ -599,7 +600,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             SecondaryCamera = new CameraViewModel(
                 string.IsNullOrEmpty(secondaryItem.Name) ? "Secondary Camera" : secondaryItem.Name,
                 secondaryItem.RtspUrl,
-                secondaryItem.Height > 0 ? secondaryItem.Height : 180);
+                secondaryItem.Height > 0 ? secondaryItem.Height : 180,
+                secondaryItem.SubStreamRtspUrl);
 
             SecondaryCamera.OnToggleExpandRequested += HandleCameraExpandRequested;
 

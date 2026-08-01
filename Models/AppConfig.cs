@@ -46,4 +46,5 @@ public class CameraItem
     public string Name { get; set; } = string.Empty;
     public int Height { get; set; } = 360;
     public string RtspUrl { get; set; } = string.Empty;
+    public string SubStreamRtspUrl { get; set; } = string.Empty;
 }
