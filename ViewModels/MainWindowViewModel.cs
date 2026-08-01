@@ -688,7 +688,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         WeatherCurrentTempFahrenheitText = $"{tempF:F1}°F";
         WeatherCurrentTempCelsiusText = $"{tempC:F1} °C";
         WeatherFeelsLikeFahrenheitText = $"{feelsF:F1}°F";
-        WeatherFeelsLikeCelsiusText = $"({feelsC:F1} °C)";
+        WeatherFeelsLikeCelsiusText = $"{feelsC:F1} °C";
         WeatherFeelsLikeText = $"{feelsF:F1}°F ({feelsC:F1} °C)";
         WeatherWindSpeedText = $"{data.Current.WindSpeedKmH:F0} km/h";
         WeatherCurrentHumidityText = $"{data.Current.Humidity}%";
