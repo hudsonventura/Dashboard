@@ -135,7 +135,25 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isSolisLoading;
 
+    // SOLAR HISTORY / MEMORY PROPERTIES
+    private readonly SolarHistoryService _solarHistoryService = new();
 
+    [ObservableProperty]
+    private string _solisSelectedDateText = DateTime.Now.ToString("dd/MM/yyyy");
+
+    [ObservableProperty]
+    private string _currentSolarDateKey = DateTime.Now.ToString("yyyy-MM-dd");
+
+    [ObservableProperty]
+    private bool _canNavigatePreviousSolarDay;
+
+    [ObservableProperty]
+    private bool _canNavigateNextSolarDay;
+
+    [ObservableProperty]
+    private bool _isViewingHistoricalSolarData;
+
+    private List<string> _availableSolarDates = new();
 
     [ObservableProperty]
     private string _solisFirst6KwText = "—";
@@ -420,6 +438,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ApplySolarGenerationProgress(0, 0, 0);
 
         LoadConfiguration();
+        _ = InitializeSolarHistoryAsync();
     }
 
     public ISeries[] SolarChartSeries { get; }
@@ -790,6 +809,23 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             SolisPv2DetailText = $"{FormatUnit(detail.UPv2, detail.UPv2Str ?? "V")} · {FormatUnit(detail.IPv2, detail.IPv2Str ?? "A")}";
             SolisLastUpdatedText = detail.TimeStr ?? DateTime.Now.ToString("HH:mm:ss");
             ApplySolarDayPoints(dayPoints);
+
+            // Salva/Atualiza o registro do dia de hoje no SQLite via Entity Framework
+            var localTodayDate = DateOnly.FromDateTime(localNow);
+            await _solarHistoryService.SaveOrUpdateTodayRecordAsync(
+                localTodayDate,
+                detail,
+                dayPoints,
+                SolisFirst6KwText,
+                SolisLast6KwText,
+                SolisStateText);
+
+            await UpdateAvailableSolarDatesAsync();
+
+            if (IsViewingHistoricalSolarData)
+            {
+                await LoadSolarDateAsync(CurrentSolarDateKey);
+            }
         }
         catch (Exception ex)
         {
@@ -801,6 +837,130 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             IsSolisLoading = false;
         }
+    }
+
+    [RelayCommand]
+    public async Task NavigatePreviousSolarDayAsync()
+    {
+        int index = _availableSolarDates.IndexOf(CurrentSolarDateKey);
+        if (index > 0)
+        {
+            string targetDateKey = _availableSolarDates[index - 1];
+            await LoadSolarDateAsync(targetDateKey);
+        }
+    }
+
+    [RelayCommand]
+    public async Task NavigateNextSolarDayAsync()
+    {
+        int index = _availableSolarDates.IndexOf(CurrentSolarDateKey);
+        if (index >= 0 && index < _availableSolarDates.Count - 1)
+        {
+            string targetDateKey = _availableSolarDates[index + 1];
+            await LoadSolarDateAsync(targetDateKey);
+        }
+    }
+
+    private async Task InitializeSolarHistoryAsync()
+    {
+        await UpdateAvailableSolarDatesAsync();
+        string todayKey = DateOnly.FromDateTime(GetSolisLocalNow()).ToString("yyyy-MM-dd");
+        CurrentSolarDateKey = todayKey;
+        SolisSelectedDateText = FormatDateKeyForDisplay(todayKey);
+
+        var todayRecord = await _solarHistoryService.GetRecordByDateAsync(todayKey);
+        if (todayRecord != null)
+        {
+            await LoadSolarDateAsync(todayKey);
+        }
+        else
+        {
+            UpdateSolarNavigationState();
+        }
+    }
+
+    private async Task UpdateAvailableSolarDatesAsync()
+    {
+        var stored = await _solarHistoryService.GetStoredDatesAsync();
+        var localTodayKey = DateOnly.FromDateTime(GetSolisLocalNow()).ToString("yyyy-MM-dd");
+
+        if (!stored.Contains(localTodayKey))
+        {
+            stored.Add(localTodayKey);
+        }
+
+        _availableSolarDates = stored.OrderBy(d => d).Distinct().ToList();
+        UpdateSolarNavigationState();
+    }
+
+    private void UpdateSolarNavigationState()
+    {
+        int index = _availableSolarDates.IndexOf(CurrentSolarDateKey);
+        if (index < 0 && _availableSolarDates.Count > 0)
+        {
+            CurrentSolarDateKey = _availableSolarDates[^1];
+            index = _availableSolarDates.Count - 1;
+        }
+
+        CanNavigatePreviousSolarDay = index > 0;
+        CanNavigateNextSolarDay = index >= 0 && index < _availableSolarDates.Count - 1;
+    }
+
+    private async Task LoadSolarDateAsync(string dateKey)
+    {
+        CurrentSolarDateKey = dateKey;
+        SolisSelectedDateText = FormatDateKeyForDisplay(dateKey);
+
+        string todayKey = DateOnly.FromDateTime(GetSolisLocalNow()).ToString("yyyy-MM-dd");
+        IsViewingHistoricalSolarData = (dateKey != todayKey);
+
+        var record = await _solarHistoryService.GetRecordByDateAsync(dateKey);
+        if (record != null)
+        {
+            SolisEnergyTodayText = FormatUnit(record.EToday, record.ETodayStr ?? "kWh");
+            SolisPowerText = IsViewingHistoricalSolarData ? "0 W" : FormatUnit(record.Pac, record.PacStr ?? "W");
+            SolisAcCurrentText = FormatUnit(record.IAc1, record.IAc1Str ?? "A");
+
+            RawSolisTemperatureCelsius = record.InverterTemperature;
+            SolisTemperatureText = FormatUnit(record.InverterTemperature, record.InverterTemperatureUnit ?? "°C");
+            SolisTemperatureColor = TemperaturePalette.ForCelsius(record.InverterTemperature);
+
+            RawSolisIgbtTemperatureCelsius = record.IgbtTemperature;
+            SolisIgbtTemperatureText = FormatUnit(record.IgbtTemperature, record.InverterTemperatureUnit ?? "°C");
+            SolisIgbtTemperatureColor = TemperaturePalette.ForIgbtCelsius(record.IgbtTemperature);
+
+            SolisPv1PowerText = FormatUnit(record.Pow1, record.Pow1Str ?? "W");
+            SolisPv1DetailText = $"{FormatUnit(record.UPv1, record.UPv1Str ?? "V")} · {FormatUnit(record.IPv1, record.IPv1Str ?? "A")}";
+            SolisPv2PowerText = FormatUnit(record.Pow2, record.Pow2Str ?? "W");
+            SolisPv2DetailText = $"{FormatUnit(record.UPv2, record.UPv2Str ?? "V")} · {FormatUnit(record.IPv2, record.IPv2Str ?? "A")}";
+
+            SolisStateText = IsViewingHistoricalSolarData
+                ? (record.StateText != null ? $"{record.StateText} (Histórico)" : "Histórico")
+                : (record.StateText ?? "Offline");
+            SolisLastUpdatedText = record.LastUpdatedText ?? "-";
+
+            List<InverterDayPoint> points = [];
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(record.DayPointsJson))
+                {
+                    points = System.Text.Json.JsonSerializer.Deserialize<List<InverterDayPoint>>(record.DayPointsJson) ?? [];
+                }
+            }
+            catch { }
+
+            ApplySolarDayPoints(points);
+            ApplySolarGenerationProgress(record.EToday, IsViewingHistoricalSolarData ? 0 : record.Pac, IsViewingHistoricalSolarData ? 0 : record.State);
+        }
+
+        UpdateSolarNavigationState();
+    }
+
+    private static string FormatDateKeyForDisplay(string dateKey)
+    {
+        if (DateOnly.TryParse(dateKey, out var parsed))
+            return parsed.ToString("dd/MM/yyyy");
+        return dateKey;
     }
 
     private static string FormatUnit(double? value, string unit) =>
