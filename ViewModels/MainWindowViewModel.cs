@@ -317,9 +317,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _weatherTimer;
     private readonly DispatcherTimer _solisTimer;
-    private readonly DispatcherTimer _burnInTimer;
     private readonly DispatcherTimer _solarPulseTimer;
     private readonly DateTime _startTime = DateTime.Now;
+    private DateTime _lastBurnInTriggerTime = DateTime.MinValue;
+    private bool _isExecutingBurnIn;
 
     public MainWindowViewModel()
     {
@@ -350,16 +351,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 await RefreshSolisCoreAsync();
         };
 
-        // Burn-in prevention timer (runs every 10 minutes)
-        _burnInTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMinutes(10)
-        };
-        _burnInTimer.Tick += async (s, e) => await TriggerBurnInProtectionAsync();
-        _burnInTimer.Start();
-
         // Run anti-burn-in action immediately upon app startup
-        Dispatcher.UIThread.Post(async () => await TriggerBurnInProtectionAsync());
+        Dispatcher.UIThread.Post(async () => await ExecuteBurnInProtectionAsync(1));
 
         // Fast pulse timer for solar generation progress animation and high temp flashing (> 59 °C)
         _solarPulseTimer = new DispatcherTimer
@@ -448,10 +441,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void OnClockTick(object? sender, EventArgs e)
     {
-        CurrentTimeText = DateTime.Now.ToString("HH:mm:ss - dd/MM/yyyy");
+        DateTime now = DateTime.Now;
+        CurrentTimeText = now.ToString("HH:mm:ss - dd/MM/yyyy");
+
+        // Synchronize burn-in protection with system clock (0, 10, 20, 30, 40, 50 mins)
+        CheckAndTriggerBurnIn(now);
 
         // Update real system monitor metrics
-        TimeSpan uptime = DateTime.Now - _startTime;
+        TimeSpan uptime = now - _startTime;
         SysUptimeText = $"{uptime.Hours:D2}:{uptime.Minutes:D2}:{uptime.Seconds:D2}";
 
         long memoryBytes = GC.GetTotalMemory(false);
@@ -464,6 +461,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         UpdateSystemMetrics();
         UpdateSolisClock();
+    }
+
+    private void CheckAndTriggerBurnIn(DateTime now)
+    {
+        if (now.Minute % 10 == 0)
+        {
+            if (_lastBurnInTriggerTime.Hour != now.Hour || _lastBurnInTriggerTime.Minute != now.Minute)
+            {
+                _lastBurnInTriggerTime = now;
+                int repeatCount = (now.Minute == 0) ? 3 : 1;
+                _ = ExecuteBurnInProtectionAsync(repeatCount);
+            }
+        }
     }
 
     private void UpdateSystemMetrics()
@@ -739,22 +749,52 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task TriggerBurnInProtectionAsync()
     {
-        // Phase 1: Invert app colors for 600ms
-        IsColorsInverted = true;
-        await Task.Delay(600);
+        await ExecuteBurnInProtectionAsync(1);
+    }
 
-        // Phase 2: Flash solid White for 400ms
-        IsColorsInverted = false;
-        BurnInOverlayColor = "#FFFFFF";
-        IsBurnInOverlayVisible = true;
-        await Task.Delay(400);
+    public async Task ExecuteBurnInProtectionAsync(int repeatCount = 1)
+    {
+        if (_isExecutingBurnIn) return;
+        _isExecutingBurnIn = true;
 
-        // Phase 3: Flash solid Black for 400ms
-        BurnInOverlayColor = "#000000";
-        await Task.Delay(400);
+        try
+        {
+            // Reconnect cameras seamlessly when burn-in protection triggers
+            if (IsCamerasEnabled)
+            {
+                PrimaryCamera?.ReconnectSeamlessly();
+                SecondaryCamera?.ReconnectSeamlessly();
+            }
 
-        // Phase 4: Restore normal display
-        IsBurnInOverlayVisible = false;
+            for (int i = 0; i < repeatCount; i++)
+            {
+                // Phase 1: Invert app colors for 600ms
+                IsColorsInverted = true;
+                await Task.Delay(600);
+
+                // Phase 2: Flash solid White for 400ms
+                IsColorsInverted = false;
+                BurnInOverlayColor = "#FFFFFF";
+                IsBurnInOverlayVisible = true;
+                await Task.Delay(400);
+
+                // Phase 3: Flash solid Black for 400ms
+                BurnInOverlayColor = "#000000";
+                await Task.Delay(400);
+
+                // Phase 4: Restore normal display
+                IsBurnInOverlayVisible = false;
+
+                if (i < repeatCount - 1)
+                {
+                    await Task.Delay(200);
+                }
+            }
+        }
+        finally
+        {
+            _isExecutingBurnIn = false;
+        }
     }
 
     [RelayCommand]

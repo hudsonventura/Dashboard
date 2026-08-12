@@ -78,11 +78,11 @@ public class CameraStreamService : IDisposable
 
     public async Task StopAsync()
     {
-        if (_cts != null)
+        var cts = Interlocked.Exchange(ref _cts, null);
+        if (cts != null)
         {
-            _cts.Cancel();
-            _cts.Dispose();
-            _cts = null;
+            try { cts.Cancel(); } catch { }
+            try { cts.Dispose(); } catch { }
         }
 
         KillProcess();
@@ -135,9 +135,9 @@ public class CameraStreamService : IDisposable
                     CreateNoWindow = true
                 };
 
-                _ffmpegProcess = Process.Start(psi);
+                var proc = Process.Start(psi);
 
-                if (_ffmpegProcess == null)
+                if (proc == null)
                 {
                     _errorMessage = "Não foi possível iniciar o processo FFmpeg.";
                     Status = StreamStatus.Error;
@@ -146,13 +146,15 @@ public class CameraStreamService : IDisposable
                     continue;
                 }
 
-                using Stream stdout = _ffmpegProcess.StandardOutput.BaseStream;
+                _ffmpegProcess = proc;
+
+                using Stream stdout = proc.StandardOutput.BaseStream;
                 
                 int frameCount = 0;
                 var stopwatch = Stopwatch.StartNew();
                 bool hasReceivedFirstFrame = false;
 
-                while (!ct.IsCancellationRequested && !_ffmpegProcess.HasExited)
+                while (!ct.IsCancellationRequested && !proc.HasExited)
                 {
                     int bytesRead = 0;
                     while (bytesRead < frameSize && !ct.IsCancellationRequested)
@@ -233,27 +235,36 @@ public class CameraStreamService : IDisposable
 
     private void KillProcess()
     {
-        if (_ffmpegProcess != null)
+        var proc = Interlocked.Exchange(ref _ffmpegProcess, null);
+        if (proc != null)
         {
             try
             {
-                if (!_ffmpegProcess.HasExited)
+                if (!proc.HasExited)
                 {
-                    _ffmpegProcess.Kill(true);
+                    proc.Kill(true);
                 }
             }
             catch { }
             finally
             {
-                _ffmpegProcess.Dispose();
-                _ffmpegProcess = null;
+                try
+                {
+                    proc.Dispose();
+                }
+                catch { }
             }
         }
     }
 
     public void Dispose()
     {
-        _cts?.Cancel();
+        var cts = Interlocked.Exchange(ref _cts, null);
+        if (cts != null)
+        {
+            try { cts.Cancel(); } catch { }
+            try { cts.Dispose(); } catch { }
+        }
         KillProcess();
     }
 }

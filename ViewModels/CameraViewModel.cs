@@ -280,7 +280,127 @@ public partial class CameraViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void Reconnect()
     {
-        StartStream();
+        ReconnectSeamlessly();
+    }
+
+    public void ReconnectSeamlessly()
+    {
+        if (!IsPlaying) return;
+
+        string targetUrl = IsFullScreen ? MainStreamUrl : SubStreamUrl;
+        if (string.IsNullOrWhiteSpace(targetUrl)) targetUrl = RtspUrl;
+
+        if (string.IsNullOrWhiteSpace(targetUrl)) return;
+
+        var oldService = _streamService;
+
+        if (oldService == null)
+        {
+            StartStream();
+            return;
+        }
+
+        // If currently in initial connecting phase, skip duplicate reconnection
+        if (oldService.Status == StreamStatus.Connecting)
+        {
+            return;
+        }
+
+        int streamWidth = IsFullScreen ? 1920 : TargetWidth;
+        int streamHeight = IsFullScreen ? 1080 : TargetHeight;
+
+        var newService = new CameraStreamService(targetUrl, streamWidth, streamHeight);
+
+        bool hasSwapped = false;
+        object swapLock = new object();
+
+        Action<WriteableBitmap>? frameHandler = null;
+        Action<StreamStatus, string>? statusHandler = null;
+        Action<double>? fpsHandler = null;
+
+        frameHandler = (bitmap) =>
+        {
+            lock (swapLock)
+            {
+                if (!hasSwapped)
+                {
+                    hasSwapped = true;
+
+                    if (oldService != null)
+                    {
+                        oldService.OnFrameReceived -= HandleFrameReceived;
+                        oldService.OnStatusChanged -= HandleStatusChanged;
+                        oldService.OnFpsUpdated -= HandleFpsUpdated;
+                        var toDispose = oldService;
+                        Task.Run(() => toDispose.Dispose());
+                    }
+
+                    _streamService = newService;
+
+                    newService.OnFrameReceived -= frameHandler;
+                    newService.OnStatusChanged -= statusHandler;
+                    newService.OnFpsUpdated -= fpsHandler;
+
+                    newService.OnFrameReceived += HandleFrameReceived;
+                    newService.OnStatusChanged += HandleStatusChanged;
+                    newService.OnFpsUpdated += HandleFpsUpdated;
+                }
+            }
+
+            HandleFrameReceived(bitmap);
+        };
+
+        statusHandler = (status, error) =>
+        {
+            lock (swapLock)
+            {
+                if (hasSwapped)
+                {
+                    HandleStatusChanged(status, error);
+                }
+                else
+                {
+                    if (status == StreamStatus.Error)
+                    {
+                        newService.OnFrameReceived -= frameHandler;
+                        newService.OnStatusChanged -= statusHandler;
+                        newService.OnFpsUpdated -= fpsHandler;
+                        Task.Run(() => newService.Dispose());
+                    }
+                }
+            }
+        };
+
+        fpsHandler = (fps) =>
+        {
+            lock (swapLock)
+            {
+                if (hasSwapped)
+                {
+                    HandleFpsUpdated(fps);
+                }
+            }
+        };
+
+        newService.OnFrameReceived += frameHandler;
+        newService.OnStatusChanged += statusHandler;
+        newService.OnFpsUpdated += fpsHandler;
+
+        newService.Start();
+
+        Task.Delay(15000).ContinueWith(_ =>
+        {
+            lock (swapLock)
+            {
+                if (!hasSwapped)
+                {
+                    newService.OnFrameReceived -= frameHandler;
+                    newService.OnStatusChanged -= statusHandler;
+                    newService.OnFpsUpdated -= fpsHandler;
+                    Task.Run(() => newService.Dispose());
+                }
+            }
+        });
     }
 
     [RelayCommand]

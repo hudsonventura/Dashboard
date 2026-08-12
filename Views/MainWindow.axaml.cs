@@ -51,6 +51,14 @@ public partial class MainWindow : Window
 
     private void OnGlobalPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        // Double Click: Toggle Fullscreen
+        if (e.ClickCount == 2)
+        {
+            ToggleFullScreen();
+            e.Handled = true;
+            return;
+        }
+
         // Right Click with Mouse: Exit Fullscreen
         var properties = e.GetCurrentPoint(this).Properties;
         if (properties.IsRightButtonPressed)
