@@ -14,7 +14,6 @@ public class DisplayPowerManagementService
 
     public void ProcessSchedule(DisplayPowerSettings settings, DateTime now)
     {
-        SetDisplayPower(turnOn: false);
         if (!settings.Enabled || !RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             return;
