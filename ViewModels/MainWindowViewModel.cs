@@ -308,7 +308,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<DiskUsageViewModel> SystemDisks { get; } = new();
 
     private WeatherSettings _weatherSettings = new();
+    private DisplayPowerSettings _displayPowerSettings = new();
     private readonly SystemMonitorService _systemMonitorService = new();
+    private readonly DisplayPowerManagementService _displayPowerService = new();
     private SolisSettings _solisSettings = new();
     private SolisApiClient? _solisClient;
     private string? _inverterSn;
@@ -461,6 +463,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         UpdateSystemMetrics();
         UpdateSolisClock();
+        _displayPowerService.ProcessSchedule(_displayPowerSettings, now);
     }
 
     private void CheckAndTriggerBurnIn(DateTime now)
@@ -586,6 +589,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             IsCamerasEnabled = appConfig.Cameras.Enabled;
             _weatherSettings = appConfig.Weather;
+            _displayPowerSettings = appConfig.DisplayPower;
             _solisSettings = appConfig.Solis;
             UpdateSolisClock();
 

@@ -5,6 +5,14 @@ public class AppConfig
     public SolisSettings Solis { get; set; } = new();
     public WeatherSettings Weather { get; set; } = new();
     public CameraSettings Cameras { get; set; } = new();
+    public DisplayPowerSettings DisplayPower { get; set; } = new();
+}
+
+public class DisplayPowerSettings
+{
+    public bool Enabled { get; set; } = true;
+    public int StandbyStartHour { get; set; } = 23;
+    public int StandbyEndHour { get; set; } = 6;
 }
 
 public class SolisSettings
