@@ -89,19 +89,195 @@ public sealed class SystemMonitorService
 
     private static double? ReadCpuTemperature()
     {
-        const string thermalPath = "/sys/class/thermal";
-        if (!Directory.Exists(thermalPath)) return null;
+        var cpuTemps = new List<double>();
+        var fallbackTemps = new List<double>();
+        var anyTemps = new List<double>();
 
-        foreach (string file in Directory.EnumerateFiles(thermalPath, "temp", SearchOption.AllDirectories))
+        // 1. Check /sys/class/hwmon (coretemp, k10temp, zenpower, etc.)
+        const string hwmonPath = "/sys/class/hwmon";
+        if (Directory.Exists(hwmonPath))
         {
-            if (double.TryParse(File.ReadAllText(file).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
+            try
+            {
+                foreach (string hwmonDir in Directory.EnumerateDirectories(hwmonPath, "hwmon*"))
+                {
+                    string? driverName = TryReadFirstLine(Path.Combine(hwmonDir, "name")) ??
+                                         TryReadFirstLine(Path.Combine(hwmonDir, "device", "name"));
+                    bool isCpuDriver = IsCpuDriver(driverName);
+                    bool isIgnoredDriver = IsIgnoredHwmonDriver(driverName);
+
+                    string searchDir = Directory.Exists(Path.Combine(hwmonDir, "device")) &&
+                                       !Directory.EnumerateFiles(hwmonDir, "temp*_input").Any()
+                        ? Path.Combine(hwmonDir, "device")
+                        : hwmonDir;
+
+                    foreach (string inputFile in Directory.EnumerateFiles(searchDir, "temp*_input"))
+                    {
+                        if (TryReadTemperature(inputFile) is not double temp) continue;
+
+                        anyTemps.Add(temp);
+
+                        string labelFile = inputFile.EndsWith("_input", StringComparison.Ordinal)
+                            ? inputFile[..^5] + "label"
+                            : inputFile;
+                        string? label = TryReadFirstLine(labelFile);
+
+                        if (isCpuDriver || IsCpuLabel(label))
+                        {
+                            cpuTemps.Add(temp);
+                        }
+                        else if (!isIgnoredDriver)
+                        {
+                            fallbackTemps.Add(temp);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore sysfs navigation errors
+            }
+        }
+
+        // 2. Check /sys/class/thermal (x86_pkg_temp, cpu-thermal, etc.)
+        const string thermalPath = "/sys/class/thermal";
+        if (Directory.Exists(thermalPath))
+        {
+            try
+            {
+                foreach (string zoneDir in Directory.EnumerateDirectories(thermalPath, "thermal_zone*"))
+                {
+                    if (TryReadTemperature(Path.Combine(zoneDir, "temp")) is not double temp) continue;
+
+                    anyTemps.Add(temp);
+
+                    string? type = TryReadFirstLine(Path.Combine(zoneDir, "type"));
+                    if (IsCpuThermalType(type))
+                    {
+                        cpuTemps.Add(temp);
+                    }
+                    else if (!IsIgnoredThermalType(type))
+                    {
+                        fallbackTemps.Add(temp);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore sysfs navigation errors
+            }
+        }
+
+        if (cpuTemps.Count > 0) return cpuTemps.Max();
+        if (fallbackTemps.Count > 0) return fallbackTemps.Max();
+        if (anyTemps.Count > 0) return anyTemps.Max();
+
+        return null;
+    }
+
+    private static double? TryReadTemperature(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath)) return null;
+            string text = File.ReadAllText(filePath).Trim();
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
             {
                 double celsius = value > 200 ? value / 1000d : value;
                 if (celsius is > 0 and < 150) return celsius;
             }
         }
+        catch
+        {
+            // Ignore sysfs file read errors
+        }
 
         return null;
+    }
+
+    private static string? TryReadFirstLine(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath)) return null;
+            using var reader = new StreamReader(filePath);
+            return reader.ReadLine()?.Trim();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool IsCpuDriver(string? driverName)
+    {
+        if (string.IsNullOrWhiteSpace(driverName)) return false;
+        string name = driverName.ToLowerInvariant();
+        return name is "coretemp" or "k10temp" or "zenpower" or "via_cputemp" ||
+               name.Contains("cputemp", StringComparison.Ordinal) ||
+               name.Contains("cpu_thermal", StringComparison.Ordinal) ||
+               name.Contains("soc_thermal", StringComparison.Ordinal);
+    }
+
+    private static bool IsCpuLabel(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return false;
+        string l = label.ToLowerInvariant();
+        return l.Contains("package", StringComparison.Ordinal) ||
+               l.Contains("core", StringComparison.Ordinal) ||
+               l.Contains("tctl", StringComparison.Ordinal) ||
+               l.Contains("tdie", StringComparison.Ordinal) ||
+               l.Contains("tccd", StringComparison.Ordinal) ||
+               l == "cpu" ||
+               l.StartsWith("cpu ", StringComparison.Ordinal) ||
+               l.EndsWith(" cpu", StringComparison.Ordinal) ||
+               l.Contains("cputin", StringComparison.Ordinal) ||
+               l.Contains("t_cpu", StringComparison.Ordinal);
+    }
+
+    private static bool IsIgnoredHwmonDriver(string? driverName)
+    {
+        if (string.IsNullOrWhiteSpace(driverName)) return false;
+        string name = driverName.ToLowerInvariant();
+        return name.Contains("nvme", StringComparison.Ordinal) ||
+               name.Contains("amdgpu", StringComparison.Ordinal) ||
+               name.Contains("nouveau", StringComparison.Ordinal) ||
+               name.Contains("radeon", StringComparison.Ordinal) ||
+               name.Contains("iwlwifi", StringComparison.Ordinal) ||
+               name.Contains("wireless", StringComparison.Ordinal) ||
+               name.Contains("battery", StringComparison.Ordinal) ||
+               name.Contains("hid", StringComparison.Ordinal) ||
+               name.Contains("acpitz", StringComparison.Ordinal) ||
+               name.Contains("pch", StringComparison.Ordinal) ||
+               name.Contains("jc42", StringComparison.Ordinal);
+    }
+
+    private static bool IsCpuThermalType(string? type)
+    {
+        if (string.IsNullOrWhiteSpace(type)) return false;
+        string t = type.ToLowerInvariant();
+        if (t.Contains("acpitz", StringComparison.Ordinal) || t.Contains("pch", StringComparison.Ordinal))
+            return false;
+
+        return t is "x86_pkg_temp" ||
+               t.Contains("cpu", StringComparison.Ordinal) ||
+               t.Contains("core", StringComparison.Ordinal) ||
+               t.Contains("pkg", StringComparison.Ordinal) ||
+               t.Contains("package", StringComparison.Ordinal) ||
+               t.Contains("k10temp", StringComparison.Ordinal) ||
+               t.Contains("zenpower", StringComparison.Ordinal) ||
+               t.Contains("soc", StringComparison.Ordinal);
+    }
+
+    private static bool IsIgnoredThermalType(string? type)
+    {
+        if (string.IsNullOrWhiteSpace(type)) return false;
+        string t = type.ToLowerInvariant();
+        return t.Contains("acpitz", StringComparison.Ordinal) ||
+               t.Contains("pch", StringComparison.Ordinal) ||
+               t.Contains("nvme", StringComparison.Ordinal) ||
+               t.Contains("gpu", StringComparison.Ordinal) ||
+               t.Contains("battery", StringComparison.Ordinal);
     }
 
     private List<DiskUsage> ReadDisks() => DriveInfo.GetDrives()
